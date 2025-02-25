@@ -45,7 +45,7 @@ func (s *Store[T]) Init(ctx context.Context) error {
 	}
 	defer s.pool.Put(conn)
 
-	sql := `create table if not exists kv (id integer primary key, key text unique, version integer, value blob);
+	sql := `create table if not exists kv (id integer primary key, key text unique, version integer, value jsonb);
 
 create index if not exists kv_key on kv(key);`
 	return sqlitex.ExecScript(conn, sql)
@@ -107,6 +107,34 @@ func (s *Store[T]) GetPrefix(ctx context.Context, prefix string) (records []Reco
 	return records, nil
 }
 
+func (s *Store[T]) List(ctx context.Context, start, limit int) (records []Record[T], err error) {
+	conn, err := s.pool.Take(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer s.pool.Put(conn)
+
+	sql := `select id, key, version, value from kv order by key limit :limit offset :start;`
+	opts := &sqlitex.ExecOptions{
+		Named: map[string]any{
+			":start": start,
+			":limit": limit,
+		},
+		ResultFunc: func(stmt *sqlite.Stmt) (err error) {
+			r, err := newRecordFromStmt[T](stmt)
+			if err != nil {
+				return err
+			}
+			records = append(records, r)
+			return nil
+		},
+	}
+	if err := sqlitex.Execute(conn, sql, opts); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
 func newErrVersionMismatch(key string, expectedVersion int64) ErrVersionMismatch {
 	return ErrVersionMismatch{
 		Key:             key,
@@ -143,7 +171,7 @@ func (s *Store[T]) Put(ctx context.Context, key string, version int64, value T) 
 	defer s.pool.Put(conn)
 
 	sql := `insert into kv (key, version, value) values (:key, 1, :value) 
-		on conflict(key) do update set version = excluded.version + 1, value = excluded.value where (version = :version or excluded.version = -1);`
+	on conflict(key) do update set version = excluded.version + 1, value = excluded.value where (:version = -1 or version = :version);`
 	opts := &sqlitex.ExecOptions{
 		Named: map[string]any{
 			":key":     key,
@@ -176,4 +204,73 @@ func (s *Store[T]) Delete(ctx context.Context, key string) error {
 		},
 	}
 	return sqlitex.Execute(conn, sql, opts)
+}
+
+func (s *Store[T]) DeletePrefix(ctx context.Context, prefix string) error {
+	conn, err := s.pool.Take(ctx)
+	if err != nil {
+		return err
+	}
+	defer s.pool.Put(conn)
+
+	sql := `delete from kv where key LIKE :prefix;`
+	opts := &sqlitex.ExecOptions{
+		Named: map[string]any{
+			":prefix": prefix + "%",
+		},
+	}
+	return sqlitex.Execute(conn, sql, opts)
+}
+
+func (s *Store[T]) Count(ctx context.Context) (count int64, err error) {
+	conn, err := s.pool.Take(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer s.pool.Put(conn)
+
+	sql := `select count(*) from kv;`
+	opts := &sqlitex.ExecOptions{
+		ResultFunc: func(stmt *sqlite.Stmt) (err error) {
+			count = stmt.GetInt64("count(*)")
+			return nil
+		},
+	}
+	if err := sqlitex.Execute(conn, sql, opts); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (s *Store[T]) Patch(ctx context.Context, key string, version int64, patch any) (err error) {
+	jsonValue, err := json.Marshal(patch)
+	if err != nil {
+		return err
+	}
+
+	conn, err := s.pool.Take(ctx)
+	if err != nil {
+		return err
+	}
+	defer s.pool.Put(conn)
+
+	sql := `insert into kv (key, version, value) values (:key, 1, :value) 
+	on conflict(key) do update set version = excluded.version + 1, value = json_patch(kv.value, excluded.value) where (:version = -1 or version = :version);`
+	opts := &sqlitex.ExecOptions{
+		Named: map[string]any{
+			":key":     key,
+			":version": version,
+			":value":   jsonValue,
+		},
+	}
+
+	if err = sqlitex.Execute(conn, sql, opts); err != nil {
+		return err
+	}
+
+	if conn.Changes() == 0 {
+		return newErrVersionMismatch(key, version)
+	}
+
+	return nil
 }

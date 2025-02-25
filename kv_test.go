@@ -161,4 +161,97 @@ func TestStore(t *testing.T) {
 			t.Errorf("expected key %q, got %q", "person/david", records[2].Key)
 		}
 	})
+
+	t.Run("DeletePrefix", func(t *testing.T) {
+		count, err := store.Count(ctx)
+		if err != nil {
+			t.Errorf("unexpected error counting data: %v", err)
+		}
+		if count == 0 {
+			t.Fatal("expected data to exist")
+		}
+
+		err = store.DeletePrefix(ctx, "")
+		if err != nil {
+			t.Errorf("unexpected error deleting data: %v", err)
+		}
+
+		newCount, err := store.Count(ctx)
+		if err != nil {
+			t.Errorf("unexpected error counting data: %v", err)
+		}
+		if newCount != 0 {
+			t.Errorf("expected 0 records, got %d", newCount)
+		}
+	})
+
+	t.Run("List", func(t *testing.T) {
+		listItems := []Person{
+			{
+				Name: "Eve",
+			},
+			{
+				Name: "Steve",
+			},
+			{
+				Name: "Bob",
+			},
+		}
+		for _, item := range listItems {
+			if err := store.Put(ctx, "list/"+item.Name, -1, item); err != nil {
+				t.Errorf("unexpected error putting data: %v", err)
+			}
+		}
+
+		records, err := store.List(ctx, 0, 2)
+		if err != nil {
+			t.Errorf("unexpected error listing data: %v", err)
+		}
+		if len(records) != 2 {
+			t.Errorf("expected 2 records, got %d", len(records))
+		}
+
+		records, err = store.List(ctx, 2, 2)
+		if err != nil {
+			t.Errorf("unexpected error listing data: %v", err)
+		}
+		if len(records) != 1 {
+			t.Errorf("expected 1 record, got %d", len(records))
+		}
+	})
+
+	t.Run("Patch", func(t *testing.T) {
+		// Create.
+		data := Person{
+			Name:         "Jess",
+			PhoneNumbers: []string{"123-456-7890"},
+		}
+
+		// Put data.
+		err := store.Put(ctx, "patch", -1, data)
+		if err != nil {
+			t.Fatalf("unexpected error putting data: %v", err)
+		}
+
+		// Patch data.
+		patch := map[string]any{
+			"name": "Jessie",
+		}
+		err = store.Patch(ctx, "patch", -1, patch)
+		if err != nil {
+			t.Fatalf("unexpected error patching data: %v", err)
+		}
+
+		// Get the record again.
+		record, ok, err := store.Get(ctx, "patch")
+		if err != nil {
+			t.Fatalf("unexpected error getting data: %v", err)
+		}
+		if !ok {
+			t.Fatal("expected data to be found")
+		}
+		if record.Value.Name != patch["name"].(string) {
+			t.Errorf("expected name %q, got %q", patch["name"].(string), record.Value.Name)
+		}
+	})
 }
