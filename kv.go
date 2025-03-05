@@ -2,24 +2,10 @@ package sqlitekv
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-
-	"zombiezen.com/go/sqlite"
-	"zombiezen.com/go/sqlite/sqlitex"
 )
 
-func newRecordFromStmt[T any](stmt *sqlite.Stmt) (r Record[T], err error) {
-	r.ID = stmt.GetInt64("id")
-	r.Key = stmt.GetText("key")
-	r.Version = stmt.GetInt64("version")
-	err = json.NewDecoder(stmt.GetReader("value")).Decode(&r.Value)
-	if err != nil {
-		return r, err
-	}
-	return r, nil
-}
-
+// Record can be used to store any type of value in the store.
 type Record[T any] struct {
 	ID      int64  `json:"id"`
 	Key     string `json:"key"`
@@ -27,112 +13,31 @@ type Record[T any] struct {
 	Value   T      `json:"value"`
 }
 
-func NewStore[T any](pool *sqlitex.Pool) *Store[T] {
-	return &Store[T]{
-		pool: pool,
-	}
-}
-
-type Store[T any] struct {
-	pool *sqlitex.Pool
-}
-
-// Init creates the tables if they don't exist.
-func (s *Store[T]) Init(ctx context.Context) error {
-	conn, err := s.pool.Take(ctx)
-	if err != nil {
-		return err
-	}
-	defer s.pool.Put(conn)
-
-	sql := `create table if not exists kv (id integer primary key, key text unique, version integer, value jsonb);
-
-create index if not exists kv_key on kv(key);`
-	return sqlitex.ExecScript(conn, sql)
-}
-
-func (s *Store[T]) Get(ctx context.Context, key string) (r Record[T], ok bool, err error) {
-	conn, err := s.pool.Take(ctx)
-	if err != nil {
-		return Record[T]{}, false, err
-	}
-	defer s.pool.Put(conn)
-
-	var count int
-	sql := `select id, key, version, value from kv where key = :key;`
-	opts := &sqlitex.ExecOptions{
-		Named: map[string]any{
-			":key": key,
-		},
-		ResultFunc: func(stmt *sqlite.Stmt) (err error) {
-			count++
-			r, err = newRecordFromStmt[T](stmt)
-			return err
-		},
-	}
-	if err := sqlitex.Execute(conn, sql, opts); err != nil {
-		return Record[T]{}, false, err
-	}
-	if count > 1 {
-		return Record[T]{}, false, fmt.Errorf("multiple records found for key %q", key)
-	}
-
-	return r, count == 1, nil
-}
-
-func (s *Store[T]) GetPrefix(ctx context.Context, prefix string) (records []Record[T], err error) {
-	conn, err := s.pool.Take(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer s.pool.Put(conn)
-
-	sql := `select id, key, version, value from kv where key LIKE :prefix;`
-	opts := &sqlitex.ExecOptions{
-		Named: map[string]any{
-			":prefix": prefix + "%",
-		},
-		ResultFunc: func(stmt *sqlite.Stmt) (err error) {
-			r, err := newRecordFromStmt[T](stmt)
-			if err != nil {
-				return err
-			}
-			records = append(records, r)
-			return nil
-		},
-	}
-	if err := sqlitex.Execute(conn, sql, opts); err != nil {
-		return nil, err
-	}
-	return records, nil
-}
-
-func (s *Store[T]) List(ctx context.Context, start, limit int) (records []Record[T], err error) {
-	conn, err := s.pool.Take(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer s.pool.Put(conn)
-
-	sql := `select id, key, version, value from kv order by key limit :limit offset :start;`
-	opts := &sqlitex.ExecOptions{
-		Named: map[string]any{
-			":start": start,
-			":limit": limit,
-		},
-		ResultFunc: func(stmt *sqlite.Stmt) (err error) {
-			r, err := newRecordFromStmt[T](stmt)
-			if err != nil {
-				return err
-			}
-			records = append(records, r)
-			return nil
-		},
-	}
-	if err := sqlitex.Execute(conn, sql, opts); err != nil {
-		return nil, err
-	}
-	return records, nil
+type Store[T any] interface {
+	// Init initializes the store. It should be called before any other method, and creates the necessary table.
+	Init(ctx context.Context) error
+	// Get gets a key from the store. If the key does not exist, it returns ok=false.
+	Get(ctx context.Context, key string) (r Record[T], ok bool, err error)
+	// GetPrefix gets all keys with a given prefix from the store.
+	GetPrefix(ctx context.Context, prefix string) (records []Record[T], err error)
+	// List gets all keys from the store, starting from the given offset and limiting the number of results to the given limit.
+	List(ctx context.Context, start, limit int) (records []Record[T], err error)
+	// Put puts a key into the store. If the key already exists, it will update the value if the version matches, and increment the version.
+	//
+	// If the key does not exist, it will insert the key with version 1.
+	//
+	// If the key exists but the version does not match, it will return an error.
+	//
+	// If the version is -1, it will skip the version check.
+	Put(ctx context.Context, key string, version int64, value T) (err error)
+	// Delete deletes a key from the store. If the key does not exist, no error is returned.
+	Delete(ctx context.Context, key string) error
+	// DeletePrefix deletes all keys with a given prefix from the store.
+	DeletePrefix(ctx context.Context, prefix string) error
+	// Count returns the number of keys in the store.
+	Count(ctx context.Context) (count int64, err error)
+	// Patch patches a key in the store. The patch is a JSON merge patch (RFC 7396), so would look something like map[string]any{"key": "value"}.
+	Patch(ctx context.Context, key string, version int64, patch any) (err error)
 }
 
 func newErrVersionMismatch(key string, expectedVersion int64) ErrVersionMismatch {
@@ -142,6 +47,7 @@ func newErrVersionMismatch(key string, expectedVersion int64) ErrVersionMismatch
 	}
 }
 
+// ErrVersionMismatch is returned when the version of a key does not match the expected version, typically the result of an optimistic lock failure.
 type ErrVersionMismatch struct {
 	Key             string
 	ExpectedVersion int64
@@ -149,128 +55,4 @@ type ErrVersionMismatch struct {
 
 func (e ErrVersionMismatch) Error() string {
 	return fmt.Sprintf("version mismatch for key %q: expected %d, but wasn't found", e.Key, e.ExpectedVersion)
-}
-
-// Put puts a key into the store. If the key already exists, it will update the value if the version matches, and increment the version.
-//
-// If the key does not exist, it will insert the key with version 1.
-//
-// If the key exists but the version does not match, it will return an error.
-//
-// If the version is -1, it will skip the version check.
-func (s *Store[T]) Put(ctx context.Context, key string, version int64, value T) (err error) {
-	jsonValue, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-
-	conn, err := s.pool.Take(ctx)
-	if err != nil {
-		return err
-	}
-	defer s.pool.Put(conn)
-
-	sql := `insert into kv (key, version, value) values (:key, 1, :value) 
-	on conflict(key) do update set version = excluded.version + 1, value = excluded.value where (:version = -1 or version = :version);`
-	opts := &sqlitex.ExecOptions{
-		Named: map[string]any{
-			":key":     key,
-			":version": version,
-			":value":   jsonValue,
-		},
-	}
-	if err = sqlitex.Execute(conn, sql, opts); err != nil {
-		return err
-	}
-
-	if conn.Changes() == 0 {
-		return newErrVersionMismatch(key, version)
-	}
-
-	return nil
-}
-
-func (s *Store[T]) Delete(ctx context.Context, key string) error {
-	conn, err := s.pool.Take(ctx)
-	if err != nil {
-		return err
-	}
-	defer s.pool.Put(conn)
-
-	sql := `delete from kv where key = :key;`
-	opts := &sqlitex.ExecOptions{
-		Named: map[string]any{
-			":key": key,
-		},
-	}
-	return sqlitex.Execute(conn, sql, opts)
-}
-
-func (s *Store[T]) DeletePrefix(ctx context.Context, prefix string) error {
-	conn, err := s.pool.Take(ctx)
-	if err != nil {
-		return err
-	}
-	defer s.pool.Put(conn)
-
-	sql := `delete from kv where key LIKE :prefix;`
-	opts := &sqlitex.ExecOptions{
-		Named: map[string]any{
-			":prefix": prefix + "%",
-		},
-	}
-	return sqlitex.Execute(conn, sql, opts)
-}
-
-func (s *Store[T]) Count(ctx context.Context) (count int64, err error) {
-	conn, err := s.pool.Take(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer s.pool.Put(conn)
-
-	sql := `select count(*) from kv;`
-	opts := &sqlitex.ExecOptions{
-		ResultFunc: func(stmt *sqlite.Stmt) (err error) {
-			count = stmt.GetInt64("count(*)")
-			return nil
-		},
-	}
-	if err := sqlitex.Execute(conn, sql, opts); err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
-func (s *Store[T]) Patch(ctx context.Context, key string, version int64, patch any) (err error) {
-	jsonValue, err := json.Marshal(patch)
-	if err != nil {
-		return err
-	}
-
-	conn, err := s.pool.Take(ctx)
-	if err != nil {
-		return err
-	}
-	defer s.pool.Put(conn)
-
-	sql := `insert into kv (key, version, value) values (:key, 1, :value) 
-	on conflict(key) do update set version = excluded.version + 1, value = json_patch(kv.value, excluded.value) where (:version = -1 or version = :version);`
-	opts := &sqlitex.ExecOptions{
-		Named: map[string]any{
-			":key":     key,
-			":version": version,
-			":value":   jsonValue,
-		},
-	}
-
-	if err = sqlitex.Execute(conn, sql, opts); err != nil {
-		return err
-	}
-
-	if conn.Changes() == 0 {
-		return newErrVersionMismatch(key, version)
-	}
-
-	return nil
 }

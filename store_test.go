@@ -3,8 +3,6 @@ package sqlitekv
 import (
 	"context"
 	"testing"
-
-	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 type Person struct {
@@ -12,20 +10,13 @@ type Person struct {
 	PhoneNumbers []string `json:"phone_numbers"`
 }
 
-func TestStore(t *testing.T) {
-	pool, err := sqlitex.NewPool("file::memory:?mode=memory&cache=shared", sqlitex.PoolOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer pool.Close()
-
+func runStoreTests(t *testing.T, store Store[Person]) {
 	expected := Person{
 		Name:         "Alice",
 		PhoneNumbers: []string{"123-456-7890"},
 	}
 
 	ctx := context.Background()
-	store := NewStore[Person](pool)
 	if err := store.Init(ctx); err != nil {
 		t.Fatalf("unexpected error initializing store: %v", err)
 	}
@@ -34,6 +25,20 @@ func TestStore(t *testing.T) {
 		err := store.Put(ctx, "person/alice", -1, expected)
 		if err != nil {
 			t.Errorf("unexpected error putting data: %v", err)
+		}
+
+		p, ok, err := store.Get(ctx, "person/alice")
+		if err != nil {
+			t.Errorf("unexpected error getting data: %v", err)
+		}
+		if !ok {
+			t.Error("expected data not found")
+		}
+		if p.Value.Name != expected.Name {
+			t.Errorf("expected name %q, got %q", expected.Name, p.Value.Name)
+		}
+		if len(p.Value.PhoneNumbers) != len(expected.PhoneNumbers) {
+			t.Fatalf("expected %d phone numbers, got %d", len(expected.PhoneNumbers), len(p.Value.PhoneNumbers))
 		}
 	})
 
@@ -97,7 +102,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("expected name %q, got %q", expected.Name, actual.Value.Name)
 		}
 		if len(actual.Value.PhoneNumbers) != len(expected.PhoneNumbers) {
-			t.Errorf("expected %d phone numbers, got %d", len(expected.PhoneNumbers), len(actual.Value.PhoneNumbers))
+			t.Fatalf("expected %d phone numbers, got %d", len(expected.PhoneNumbers), len(actual.Value.PhoneNumbers))
 		}
 		for i, expectedNumber := range expected.PhoneNumbers {
 			if actual.Value.PhoneNumbers[i] != expectedNumber {
@@ -149,7 +154,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("unexpected error getting data: %v", err)
 		}
 		if len(records) != 3 {
-			t.Errorf("expected 3 records, got %d", len(records))
+			t.Fatalf("expected 3 records, got %d", len(records))
 		}
 		if records[0].Key != "person/bob" {
 			t.Errorf("expected key %q, got %q", "person/bob", records[0].Key)
@@ -252,6 +257,13 @@ func TestStore(t *testing.T) {
 		}
 		if record.Value.Name != patch["name"].(string) {
 			t.Errorf("expected name %q, got %q", patch["name"].(string), record.Value.Name)
+		}
+	})
+
+	t.Run("Clear", func(t *testing.T) {
+		err := store.DeletePrefix(ctx, "")
+		if err != nil {
+			t.Errorf("unexpected error clearing data: %v", err)
 		}
 	})
 }
