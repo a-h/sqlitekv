@@ -3,6 +3,7 @@ module github.com/a-h/sqlitekv
 go 1.23.4
 
 require (
+	github.com/alecthomas/kong v1.8.1
 	github.com/rqlite/rqlite-go-http v0.0.0-20250303134341-c2f34fa063d5
 	zombiezen.com/go/sqlite v1.4.0
 )

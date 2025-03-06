@@ -10,7 +10,7 @@ const initCreateIndexSQL = `create index if not exists kv_key on kv(key);`
 
 // Get operation.
 
-const getSQL = `select id, key, version, value from kv where key = :key;`
+const getSQL = `select id, key, version, json(value) as value from kv where key = :key;`
 
 func newGetSQLParamsSqlite(key string) map[string]any {
 	return map[string]any{
@@ -26,7 +26,7 @@ func newGetSQLParamsRqlite(key string) map[string]any {
 
 // GetPrefix operation.
 
-const getPrefixSQL = `select id, key, version, value from kv where key like :prefix;`
+const getPrefixSQL = `select id, key, version, json(value) as value from kv where key like :prefix;`
 
 func newGetPrefixSQLParamsSqlite(prefix string) map[string]any {
 	return map[string]any{
@@ -42,7 +42,7 @@ func newGetPrefixSQLParamsRqlite(prefix string) map[string]any {
 
 // List operation.
 
-const listSQL = `select id, key, version, value from kv order by key limit :limit offset :start;`
+const listSQL = `select id, key, version, json(value) as value from kv order by key limit :limit offset :start;`
 
 func newListSQLParamsSqlite(start, limit int) map[string]any {
 	return map[string]any{
@@ -60,7 +60,7 @@ func newListSQLParamsRqlite(start, limit int) map[string]any {
 
 // Put operation.
 
-const putSQL = `insert into kv (key, version, value) values (:key, 1, :value) on conflict(key) do update set version = excluded.version + 1, value = excluded.value where (:version = -1 or version = :version);`
+const putSQL = `insert into kv (key, version, value) values (:key, 1, jsonb(:value)) on conflict(key) do update set version = excluded.version + 1, value = jsonb(excluded.value) where (:version = -1 or version = :version);`
 
 func newPutSQLParamsSqlite(key string, version int64, value any) (params map[string]any, err error) {
 	jsonValue, err := json.Marshal(value)
@@ -126,7 +126,7 @@ const countSQL = `select count(*) from kv;`
 
 // Patch operation.
 
-const patchSQL = `insert into kv (key, version, value) values (:key, 1, :value) on conflict(key) do update set version = excluded.version + 1, value = json_patch(kv.value, excluded.value) where (:version = -1 or version = :version);`
+const patchSQL = `insert into kv (key, version, value) values (:key, 1, jsonb(:value)) on conflict(key) do update set version = excluded.version + 1, value = jsonb_patch(kv.value, excluded.value) where (:version = -1 or version = :version);`
 
 func newPatchSQLParamsSqlite(key string, version int64, patch any) (params map[string]any, err error) {
 	jsonPatch, err := json.Marshal(patch)

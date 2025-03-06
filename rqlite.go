@@ -147,12 +147,13 @@ func (rq *Rqlite[T]) GetPrefix(ctx context.Context, prefix string) (records []Re
 	if err := checkResultColumns(qr.Results[0]); err != nil {
 		return nil, err
 	}
-	for _, values := range qr.Results[0].Values {
+	records = make([]Record[T], len(qr.Results[0].Values))
+	for i, values := range qr.Results[0].Values {
 		r, err := newRecordFromValues[T](values)
 		if err != nil {
 			return nil, err
 		}
-		records = append(records, r)
+		records[i] = r
 	}
 	return records, nil
 }
@@ -179,12 +180,13 @@ func (rq *Rqlite[T]) List(ctx context.Context, start, limit int) (records []Reco
 	if err := checkResultColumns(qr.Results[0]); err != nil {
 		return nil, err
 	}
-	for _, values := range qr.Results[0].Values {
+	records = make([]Record[T], len(qr.Results[0].Values))
+	for i, values := range qr.Results[0].Values {
 		r, err := newRecordFromValues[T](values)
 		if err != nil {
 			return nil, err
 		}
-		records = append(records, r)
+		records[i] = r
 	}
 	return records, nil
 }
@@ -243,6 +245,12 @@ func (rq *Rqlite[T]) Delete(ctx context.Context, key string) (err error) {
 }
 
 func (rq *Rqlite[T]) DeletePrefix(ctx context.Context, prefix string) (err error) {
+	if prefix == "" {
+		return fmt.Errorf("deleteprefix: prefix cannot be empty, use '*' to delete all records")
+	}
+	if prefix == "*" {
+		prefix = ""
+	}
 	q := rqlitehttp.SQLStatement{
 		SQL:         deletePrefixSQL,
 		NamedParams: newDeletePrefixSQLParamsRqlite(prefix),

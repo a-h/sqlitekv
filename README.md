@@ -2,6 +2,70 @@
 
 A KV store on top of sqlite / rqlite.
 
+It can be used as a CLI tool, or as a Go library.
+
+## CLI
+
+The CLI tool can be used to interact with a sqlite or rqlite database.
+
+```bash
+# Create a new data.db file (use the --connection flag to specify a different file).
+kv init
+
+# Put a key into the store.
+echo '{"hello": "world"}' | kv put hello
+
+# Get the key back.
+kv get hello
+
+# List all keys in the store.
+kv list
+
+# Delete the key.
+kv delete hello
+```
+
+### CLI Usage
+
+```bash
+Usage: kv <command> [flags]
+
+Flags:
+  -h, --help                                  Show context-sensitive help.
+      --type="sqlite"                         The type of KV store to use.
+      --connection="file:data.db?mode=rwc"    The connection string to use.
+
+Commands:
+  init [flags]
+    Initialize the KV store.
+
+  get <key> [flags]
+    Get a key from the KV store.
+
+  get-prefix <prefix> [flags]
+    Get all keys with a given prefix from the KV store.
+
+  list [flags]
+    List all keys in the KV store.
+
+  put <key> [flags]
+    Put a key into the KV store.
+
+  delete <key> [flags]
+    Delete a key from the KV store.
+
+  delete-prefix <prefix> [flags]
+    Delete all keys with a given prefix from the KV store.
+
+  count [flags]
+    Count the number of keys in the KV store
+
+  patch <key> [flags]
+    Patch a key in the KV store.
+
+Run "kv <command> --help" for more information on a command.
+```
+
 ## Usage
 
 The `Store` interface has a sqlite and an rqlite implementation.
@@ -102,6 +166,8 @@ type Store[T any] interface {
 
 ### db-run
 
+You don't need to run rqlite. You can use sqlite which works directly with the file system, however, if you want a distributed database, you can use rqlite. This is useful if you have a load balanced web application, or want to share data between multiple services.
+
 interactive: true
 
 ```bash
@@ -148,35 +214,33 @@ Push a semantic version number.
 version push
 ```
 
-### docker-build-rqlite-aarch64
+### nix-build
 
 ```bash
-nix build .#packages.aarch64-linux.rqlite-docker-image
+nix build
 ```
 
-### docker-build-rqlite-x86_64
+### docker-build-aarch64
 
 ```bash
-nix build .#packages.x86_64-linux.rqlite-docker-image
+nix build .#packages.aarch64-linux.docker-image
 ```
 
-### crane-push-rqlite
+### docker-build-x86_64
+
+```bash
+nix build .#packages.x86_64-linux.docker-image
+```
+
+### crane-push
 
 env: CONTAINER_REGISTRY=ghcr.io/sqlitekv
 
 ```bash
-nix build .#packages.x86_64-linux.rqlite-docker-image
-cp ./result /tmp/rqlite.tar.gz
-gunzip -f /tmp/rqlite.tar.gz
-crane push /tmp/rqlite.tar ${CONTAINER_REGISTRY}/rqlite:v0.0.1
-```
-
-### docker-load-rqlite
-
-Once you've built the image, you can load it into a local Docker daemon with `docker load`.
-
-```bash
-docker load < result
+nix build .#packages.x86_64-linux.docker-image
+cp ./result /tmp/sqlitekv.tar.gz
+gunzip -f /tmp/sqlitekv.tar.gz
+crane push /tmp/sqlitekv.tar ${CONTAINER_REGISTRY}/sqlitekv:v0.0.1
 ```
 
 ### docker-run-rqlite

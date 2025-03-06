@@ -176,7 +176,7 @@ func runStoreTests(t *testing.T, store Store[Person]) {
 			t.Fatal("expected data to exist")
 		}
 
-		err = store.DeletePrefix(ctx, "")
+		err = store.DeletePrefix(ctx, "*")
 		if err != nil {
 			t.Errorf("unexpected error deleting data: %v", err)
 		}
@@ -261,7 +261,7 @@ func runStoreTests(t *testing.T, store Store[Person]) {
 	})
 
 	t.Run("Clear", func(t *testing.T) {
-		err := store.DeletePrefix(ctx, "")
+		err := store.DeletePrefix(ctx, "*")
 		if err != nil {
 			t.Errorf("unexpected error clearing data: %v", err)
 		}

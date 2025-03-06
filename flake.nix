@@ -1,6 +1,10 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    gitignore = {
+      url = "github:hercules-ci/gitignore.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     version = {
       url = "github:a-h/version";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -11,7 +15,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, version, xc }:
+  outputs = { self, nixpkgs, gitignore, version, xc }:
     let
       allSystems = [
         "x86_64-linux" # 64-bit Intel/AMD Linux
@@ -43,36 +47,52 @@
         };
       });
 
-      # Build Docker container.
+      # Build app.
+      app = { name, pkgs, system }: pkgs.buildGoModule {
+        name = name;
+        pname = name;
+        src = gitignore.lib.gitignoreSource ./.;
+        go = pkgs.go;
+        subPackages = [ "cmd/kv" ];
+        vendorHash = "sha256-gC0FoXveGZbwVaG2kq3E/GlqiC2FkPPPx5PC7lOoow4=";
+        CGO_ENABLED = 0;
+        flags = [
+          "-trimpath"
+        ];
+        ldflags = [
+          "-s"
+          "-w"
+          "-extldflags -static"
+        ];
+      };
+
+      # Build Docker containers.
       dockerUser = pkgs: pkgs.runCommand "user" { } ''
         mkdir -p $out/etc
         echo "user:x:1000:1000:user:/home/user:/bin/false" > $out/etc/passwd
         echo "user:x:1000:" > $out/etc/group
         echo "user:!:1::::::" > $out/etc/shadow
       '';
-      rqliteDockerImage = { pkgs, system }: pkgs.dockerTools.buildImage {
-        name = "rqlite";
-        tag = "latest";
+      dockerImage = { name, pkgs, system }:
+        let
+          versionNumber = builtins.readFile ./.version;
+        in
+        pkgs.dockerTools.buildImage {
+          name = name;
+          tag = versionNumber;
 
-        copyToRoot = [
-          pkgs.coreutils
-          pkgs.bash
-          (dockerUser pkgs)
-          pkgs.rqlite
-        ];
-        config = {
-          Entrypoint = [ "rqlited" "-http-addr" "0.0.0.0:4001" "-http-adv-addr" "rqlite.sqlitekv.svc.cluster.local:4001" "-raft-addr" "0.0.0.0:4002" "-raft-adv-addr" "rqlite.sqlitekv.svc.cluster.local:4002" "-auth" "/mnt/rqlite/auth.json" "/mnt/data" ];
-          User = "user:user";
-          ExposedPorts = {
-            "4001/tcp" = { };
-            "4002/tcp" = { };
-            "4003/tcp" = { };
-          };
-          Volumes = {
-            "/rqlite/file" = { };
+          copyToRoot = [
+            # Remove coreutils and bash for a smaller container.
+            pkgs.coreutils
+            pkgs.bash
+            (dockerUser pkgs)
+            (app { inherit name pkgs system; })
+          ];
+          config = {
+            Cmd = [ "kv" ];
+            User = "user:user";
           };
         };
-      };
 
       # Development tools used.
       devTools = { system, pkgs }: [
@@ -87,11 +107,14 @@
         # Database tools.
         pkgs.rqlite # Distributed sqlite.
       ];
+
+      name = "sqlitekv";
     in
     {
       # `nix build .#rqlite-docker-image` builds the Docker container.
       packages = forAllSystems ({ system, pkgs }: {
-        rqlite-docker-image = rqliteDockerImage { pkgs = pkgs; system = system; };
+        default = app { name = name; pkgs = pkgs; system = system; };
+        docker-image = dockerImage { pkgs = pkgs; system = system; };
       });
       # `nix develop` provides a shell containing required tools.
       devShells = forAllSystems ({ system, pkgs }: {

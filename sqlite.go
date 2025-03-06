@@ -75,6 +75,7 @@ func (s *Sqlite[T]) GetPrefix(ctx context.Context, prefix string) (records []Rec
 	}
 	defer s.pool.Put(conn)
 
+	records = make([]Record[T], 0)
 	opts := &sqlitex.ExecOptions{
 		Named: newGetPrefixSQLParamsSqlite(prefix),
 		ResultFunc: func(stmt *sqlite.Stmt) (err error) {
@@ -99,6 +100,7 @@ func (s *Sqlite[T]) List(ctx context.Context, start, limit int) (records []Recor
 	}
 	defer s.pool.Put(conn)
 
+	records = make([]Record[T], 0, limit)
 	opts := &sqlitex.ExecOptions{
 		Named: newListSQLParamsSqlite(start, limit),
 		ResultFunc: func(stmt *sqlite.Stmt) (err error) {
@@ -156,6 +158,13 @@ func (s *Sqlite[T]) Delete(ctx context.Context, key string) error {
 }
 
 func (s *Sqlite[T]) DeletePrefix(ctx context.Context, prefix string) error {
+	if prefix == "" {
+		return fmt.Errorf("deleteprefix: prefix cannot be empty, use '*' to delete all records")
+	}
+	if prefix == "*" {
+		prefix = ""
+	}
+
 	conn, err := s.pool.Take(ctx)
 	if err != nil {
 		return err
