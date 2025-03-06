@@ -22,7 +22,7 @@ type Store[T any] interface {
 	GetPrefix(ctx context.Context, prefix string) (records []Record[T], err error)
 	// List gets all keys from the store, starting from the given offset and limiting the number of results to the given limit.
 	List(ctx context.Context, start, limit int) (records []Record[T], err error)
-	// Put puts a key into the store. If the key already exists, it will update the value if the version matches, and increment the version.
+	// Put a key into the store. If the key already exists, it will update the value if the version matches, and increment the version.
 	//
 	// If the key does not exist, it will insert the key with version 1.
 	//
