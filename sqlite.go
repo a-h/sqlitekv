@@ -32,7 +32,6 @@ type Sqlite[T any] struct {
 
 func (s *Sqlite[T]) isStore() Store[T] { return s }
 
-// Init creates the tables if they don't exist.
 func (s *Sqlite[T]) Init(ctx context.Context) error {
 	conn, err := s.pool.Take(ctx)
 	if err != nil {

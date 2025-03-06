@@ -55,21 +55,20 @@ func tryGetInt64(v any) (int64, error) {
 
 func NewRqlite[T any](client *rqlitehttp.Client) *Rqlite[T] {
 	return &Rqlite[T]{
-		client:          client,
-		timeout:         time.Second * 30,
-		readConsistency: rqlitehttp.ReadConsistencyLevelWeak,
+		Client:          client,
+		Timeout:         time.Second * 30,
+		ReadConsistency: rqlitehttp.ReadConsistencyLevelWeak,
 	}
 }
 
 type Rqlite[T any] struct {
-	client          *rqlitehttp.Client
-	timeout         time.Duration
-	readConsistency rqlitehttp.ReadConsistencyLevel
+	Client          *rqlitehttp.Client
+	Timeout         time.Duration
+	ReadConsistency rqlitehttp.ReadConsistencyLevel
 }
 
 func (r *Rqlite[T]) isStore() Store[T] { return r }
 
-// Init creates the tables if they don't exist.
 func (r *Rqlite[T]) Init(ctx context.Context) error {
 	statements := rqlitehttp.NewSQLStatementsFromStrings(
 		[]string{initCreateTableSQL, initCreateIndexSQL},
@@ -77,9 +76,9 @@ func (r *Rqlite[T]) Init(ctx context.Context) error {
 	opts := &rqlitehttp.ExecuteOptions{
 		Transaction: true,
 		Wait:        true,
-		Timeout:     r.timeout,
+		Timeout:     r.Timeout,
 	}
-	qr, err := r.client.Execute(ctx, statements, opts)
+	qr, err := r.Client.Execute(ctx, statements, opts)
 	if err != nil {
 		return fmt.Errorf("init: %w", err)
 	}
@@ -100,10 +99,10 @@ func (rq *Rqlite[T]) Get(ctx context.Context, key string) (r Record[T], ok bool,
 		NamedParams: newGetSQLParamsRqlite(key),
 	}
 	opts := &rqlitehttp.QueryOptions{
-		Timeout: rq.timeout,
-		Level:   rq.readConsistency,
+		Timeout: rq.Timeout,
+		Level:   rq.ReadConsistency,
 	}
-	qr, err := rq.client.Query(ctx, rqlitehttp.SQLStatements{q}, opts)
+	qr, err := rq.Client.Query(ctx, rqlitehttp.SQLStatements{q}, opts)
 	if err != nil {
 		return Record[T]{}, false, err
 	}
@@ -132,10 +131,10 @@ func (rq *Rqlite[T]) GetPrefix(ctx context.Context, prefix string) (records []Re
 		NamedParams: newGetPrefixSQLParamsRqlite(prefix),
 	}
 	opts := &rqlitehttp.QueryOptions{
-		Timeout: rq.timeout,
-		Level:   rq.readConsistency,
+		Timeout: rq.Timeout,
+		Level:   rq.ReadConsistency,
 	}
-	qr, err := rq.client.Query(ctx, rqlitehttp.SQLStatements{q}, opts)
+	qr, err := rq.Client.Query(ctx, rqlitehttp.SQLStatements{q}, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -164,10 +163,10 @@ func (rq *Rqlite[T]) List(ctx context.Context, start, limit int) (records []Reco
 		NamedParams: newListSQLParamsRqlite(start, limit),
 	}
 	opts := &rqlitehttp.QueryOptions{
-		Timeout: rq.timeout,
-		Level:   rq.readConsistency,
+		Timeout: rq.Timeout,
+		Level:   rq.ReadConsistency,
 	}
-	qr, err := rq.client.Query(ctx, rqlitehttp.SQLStatements{q}, opts)
+	qr, err := rq.Client.Query(ctx, rqlitehttp.SQLStatements{q}, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -202,9 +201,9 @@ func (rq *Rqlite[T]) Put(ctx context.Context, key string, version int64, value T
 	opts := &rqlitehttp.ExecuteOptions{
 		Transaction: true,
 		Wait:        true,
-		Timeout:     rq.timeout,
+		Timeout:     rq.Timeout,
 	}
-	qr, err := rq.client.Execute(ctx, rqlitehttp.SQLStatements{q}, opts)
+	qr, err := rq.Client.Execute(ctx, rqlitehttp.SQLStatements{q}, opts)
 	if err != nil {
 		return err
 	}
@@ -228,9 +227,9 @@ func (rq *Rqlite[T]) Delete(ctx context.Context, key string) (err error) {
 	opts := &rqlitehttp.ExecuteOptions{
 		Transaction: true,
 		Wait:        true,
-		Timeout:     rq.timeout,
+		Timeout:     rq.Timeout,
 	}
-	qr, err := rq.client.Execute(ctx, rqlitehttp.SQLStatements{q}, opts)
+	qr, err := rq.Client.Execute(ctx, rqlitehttp.SQLStatements{q}, opts)
 	if err != nil {
 		return err
 	}
@@ -251,9 +250,9 @@ func (rq *Rqlite[T]) DeletePrefix(ctx context.Context, prefix string) (err error
 	opts := &rqlitehttp.ExecuteOptions{
 		Transaction: true,
 		Wait:        true,
-		Timeout:     rq.timeout,
+		Timeout:     rq.Timeout,
 	}
-	qr, err := rq.client.Execute(ctx, rqlitehttp.SQLStatements{q}, opts)
+	qr, err := rq.Client.Execute(ctx, rqlitehttp.SQLStatements{q}, opts)
 	if err != nil {
 		return err
 	}
@@ -271,10 +270,10 @@ func (rq *Rqlite[T]) Count(ctx context.Context) (count int64, err error) {
 		SQL: countSQL,
 	}
 	opts := &rqlitehttp.QueryOptions{
-		Timeout: rq.timeout,
-		Level:   rq.readConsistency,
+		Timeout: rq.Timeout,
+		Level:   rq.ReadConsistency,
 	}
-	qr, err := rq.client.Query(ctx, rqlitehttp.SQLStatements{q}, opts)
+	qr, err := rq.Client.Query(ctx, rqlitehttp.SQLStatements{q}, opts)
 	if err != nil {
 		return 0, err
 	}
@@ -309,9 +308,9 @@ func (rq *Rqlite[T]) Patch(ctx context.Context, key string, version int64, patch
 	opts := &rqlitehttp.ExecuteOptions{
 		Transaction: true,
 		Wait:        true,
-		Timeout:     rq.timeout,
+		Timeout:     rq.Timeout,
 	}
-	qr, err := rq.client.Execute(ctx, rqlitehttp.SQLStatements{q}, opts)
+	qr, err := rq.Client.Execute(ctx, rqlitehttp.SQLStatements{q}, opts)
 	if err != nil {
 		return err
 	}
