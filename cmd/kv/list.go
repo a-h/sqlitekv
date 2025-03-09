@@ -8,8 +8,8 @@ import (
 )
 
 type ListCommand struct {
-	Start int `help:"The index to start from." default:"0"`
-	Limit int `help:"The maximum number of items to list." default:"100"`
+	Offset int `arg:"-o,--offset" help:"Range offset." default:"0"`
+	Limit  int `arg:"-l,--limit" help:"The maximum number of records to return, or -1 for no limit." default:"1000"`
 }
 
 func (c *ListCommand) Run(ctx context.Context, g GlobalFlags) error {
@@ -18,7 +18,7 @@ func (c *ListCommand) Run(ctx context.Context, g GlobalFlags) error {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
 
-	data, err := store.List(ctx, c.Start, c.Limit)
+	data, err := store.List(ctx, c.Offset, c.Limit)
 	if err != nil {
 		return fmt.Errorf("failed to list data: %w", err)
 	}

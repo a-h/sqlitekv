@@ -8,7 +8,7 @@ import (
 )
 
 type GetCommand struct {
-	Key          string `arg:"" help:"The key to get from the KV store." required:""`
+	Key          string `arg:"" help:"The key to get." required:""`
 	PrintVersion bool   `help:"Print the version of the key."`
 }
 

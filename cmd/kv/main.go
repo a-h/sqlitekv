@@ -47,15 +47,19 @@ func (g GlobalFlags) Store() (sqlitekv.Store[any], error) {
 type CLI struct {
 	GlobalFlags
 
-	Init         InitCommand         `cmd:"init" help:"Initialize the KV store."`
-	Get          GetCommand          `cmd:"get" help:"Get a key from the KV store."`
-	GetPrefix    GetPrefixCommand    `cmd:"get-prefix" help:"Get all keys with a given prefix from the KV store."`
-	List         ListCommand         `cmd:"list" help:"List all keys in the KV store."`
-	Put          PutCommand          `cmd:"put" help:"Put a key into the KV store."`
-	Delete       DeleteCommand       `cmd:"delete" help:"Delete a key from the KV store."`
-	DeletePrefix DeletePrefixCommand `cmd:"delete-prefix" help:"Delete all keys with a given prefix from the KV store."`
-	Count        CountCommand        `cmd:"count" help:"Count the number of keys in the KV store"`
-	Patch        PatchCommand        `cmd:"patch" help:"Patch a key in the KV store."`
+	Init         InitCommand         `cmd:"init" help:"Initialize the store."`
+	Get          GetCommand          `cmd:"get" help:"Get a key."`
+	GetPrefix    GetPrefixCommand    `cmd:"get-prefix" help:"Get all keys with a given prefix."`
+	GetRange     GetRangeCommand     `cmd:"get-range" help:"Get a range of keys."`
+	List         ListCommand         `cmd:"list" help:"List all keys."`
+	Put          PutCommand          `cmd:"put" help:"Put a key."`
+	Delete       DeleteCommand       `cmd:"delete" help:"Delete a key."`
+	DeletePrefix DeletePrefixCommand `cmd:"delete-prefix" help:"Delete all keys with a given prefix."`
+	DeleteRange  DeleteRangeCommand  `cmd:"delete-range" help:"Delete a range of keys."`
+	Count        CountCommand        `cmd:"count" help:"Count the number of keys."`
+	CountPrefix  CountPrefixCommand  `cmd:"count-prefix" help:"Count the number of keys with a given prefix."`
+	CountRange   CountRangeCommand   `cmd:"count-range" help:"Count the number of keys in a range."`
+	Patch        PatchCommand        `cmd:"patch" help:"Patch a key."`
 }
 
 func main() {

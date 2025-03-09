@@ -8,7 +8,7 @@ import (
 )
 
 type PutCommand struct {
-	Key     string `arg:"" help:"The key to put into the KV store." required:""`
+	Key     string `arg:"" help:"Key name" required:""`
 	Version int64  `help:"The version of the key to overwrite, or -1 if no version check is required." default:"-1"`
 }
 
