@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func newDeletePrefixTest(ctx context.Context, store Store[Person]) func(t *testing.T) {
+func newDeletePrefixTest(ctx context.Context, store Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Run("Can delete data with matching prefix", func(t *testing.T) {
 			defer store.DeletePrefix(ctx, "deleteprefix", 0, -1)
@@ -106,7 +106,8 @@ func newDeletePrefixTest(ctx context.Context, store Store[Person]) func(t *testi
 				t.Errorf("expected 1 record, got %d", count)
 			}
 
-			_, ok, err := store.Get(ctx, "deleteprefix/a")
+			var r struct{} // We don't care about the value, just the existence of a record.
+			_, ok, err := store.Get(ctx, "deleteprefix/a", &r)
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}

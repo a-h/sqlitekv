@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func newPatchTest(ctx context.Context, store Store[Person]) func(t *testing.T) {
+func newPatchTest(ctx context.Context, store Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Run("Can patch data", func(t *testing.T) {
 			defer store.DeletePrefix(ctx, "*", 0, -1)
@@ -31,16 +31,17 @@ func newPatchTest(ctx context.Context, store Store[Person]) func(t *testing.T) {
 				t.Fatalf("unexpected error patching data: %v", err)
 			}
 
-			// Get the record again.
-			record, ok, err := store.Get(ctx, "patch")
+			// Get the updated again.
+			var updated Person
+			_, ok, err := store.Get(ctx, "patch", &updated)
 			if err != nil {
 				t.Fatalf("unexpected error getting data: %v", err)
 			}
 			if !ok {
 				t.Fatal("expected data to be found")
 			}
-			if record.Value.Name != patch["name"].(string) {
-				t.Errorf("expected name %q, got %q", patch["name"].(string), record.Value.Name)
+			if updated.Name != patch["name"].(string) {
+				t.Errorf("expected name %q, got %q", patch["name"].(string), updated.Name)
 			}
 		})
 		t.Run("Patching a non-existent record creates it", func(t *testing.T) {
@@ -55,16 +56,17 @@ func newPatchTest(ctx context.Context, store Store[Person]) func(t *testing.T) {
 				t.Fatalf("unexpected error patching data: %v", err)
 			}
 
-			// Get the record again.
-			record, ok, err := store.Get(ctx, "patch-does-not-exist")
+			// Get the updated again.
+			var updated Person
+			_, ok, err := store.Get(ctx, "patch-does-not-exist", &updated)
 			if err != nil {
 				t.Fatalf("unexpected error getting data: %v", err)
 			}
 			if !ok {
 				t.Fatal("expected data to be found")
 			}
-			if record.Value.Name != patch["name"].(string) {
-				t.Errorf("expected name %q, got %q", patch["name"].(string), record.Value.Name)
+			if updated.Name != patch["name"].(string) {
+				t.Errorf("expected name %q, got %q", patch["name"].(string), updated.Name)
 			}
 		})
 	}

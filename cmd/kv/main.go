@@ -17,14 +17,22 @@ type GlobalFlags struct {
 	Connection string `help:"The connection string to use." default:"file:data.db?mode=rwc"`
 }
 
-func (g GlobalFlags) Store() (sqlitekv.Store[any], error) {
+func (g GlobalFlags) Store() (sqlitekv.Store, error) {
+	db, err := g.DB()
+	if err != nil {
+		return sqlitekv.Store{}, err
+	}
+	return sqlitekv.NewStore(db), nil
+}
+
+func (g GlobalFlags) DB() (sqlitekv.DB, error) {
 	switch g.Type {
 	case "sqlite":
 		pool, err := sqlitex.NewPool(g.Connection, sqlitex.PoolOptions{})
 		if err != nil {
 			return nil, err
 		}
-		return sqlitekv.NewSqlite[any](pool), nil
+		return sqlitekv.NewSqlite(pool), nil
 	case "rqlite":
 		u, err := url.Parse(g.Connection)
 		if err != nil {
@@ -38,7 +46,7 @@ func (g GlobalFlags) Store() (sqlitekv.Store[any], error) {
 		if user != "" && password != "" {
 			client.SetBasicAuth(user, password)
 		}
-		return sqlitekv.NewRqlite[any](client), nil
+		return sqlitekv.NewRqlite(client), nil
 	default:
 		return nil, fmt.Errorf("unknown store type %q", g.Type)
 	}
@@ -72,6 +80,7 @@ func main() {
 	)
 	if err := kctx.Run(ctx, cli.GlobalFlags); err != nil {
 		fmt.Println(err)
+
 		os.Exit(1)
 	}
 }

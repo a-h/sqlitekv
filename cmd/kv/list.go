@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/a-h/sqlitekv"
 )
 
 type ListCommand struct {
@@ -23,7 +25,12 @@ func (c *ListCommand) Run(ctx context.Context, g GlobalFlags) error {
 		return fmt.Errorf("failed to list data: %w", err)
 	}
 
+	records, err := sqlitekv.RecordsOf[map[string]any](data)
+	if err != nil {
+		return fmt.Errorf("failed to convert records: %w", err)
+	}
+
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	return enc.Encode(data)
+	return enc.Encode(records)
 }

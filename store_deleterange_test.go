@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func newDeleteRangeTest(ctx context.Context, store Store[Person]) func(t *testing.T) {
+func newDeleteRangeTest(ctx context.Context, store Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Run("Can delete within a range", func(t *testing.T) {
 			defer store.DeletePrefix(ctx, "*", 0, -1)
@@ -28,7 +28,8 @@ func newDeleteRangeTest(ctx context.Context, store Store[Person]) func(t *testin
 			if count != 1 {
 				t.Errorf("expected 1 record, got %d", count)
 			}
-			_, ok, err := store.Get(ctx, "deleterange/c")
+			var r struct{}
+			_, ok, err := store.Get(ctx, "deleterange/c", &r)
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}
@@ -58,7 +59,8 @@ func newDeleteRangeTest(ctx context.Context, store Store[Person]) func(t *testin
 			if count != 3 {
 				t.Errorf("expected 3 records, got %d", count)
 			}
-			_, ok, err := store.Get(ctx, "deleterange/b")
+			var r struct{}
+			_, ok, err := store.Get(ctx, "deleterange/b", &r)
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}
@@ -88,7 +90,8 @@ func newDeleteRangeTest(ctx context.Context, store Store[Person]) func(t *testin
 			if count != 2 {
 				t.Errorf("expected 2 records (a and d), got %d", count)
 			}
-			_, ok, err := store.Get(ctx, "deleterange/a")
+			var r struct{}
+			_, ok, err := store.Get(ctx, "deleterange/a", &r)
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}

@@ -2,12 +2,11 @@ package sqlitekv
 
 import (
 	"context"
-	"slices"
 	"strings"
 	"testing"
 )
 
-func newGetRangeTest(ctx context.Context, store Store[Person]) func(t *testing.T) {
+func newGetRangeTest(ctx context.Context, store Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		defer store.DeletePrefix(ctx, "*", 0, -1)
 
@@ -49,8 +48,12 @@ func newGetRangeTest(ctx context.Context, store Store[Person]) func(t *testing.T
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}
-			if !personSliceIsEqual(expected, slices.Collect(actual.Values())) {
-				t.Errorf("expected %#v, got %#v", expected, actual)
+			actualValues, err := ValuesOf[Person](actual)
+			if err != nil {
+				t.Errorf("unexpected error converting rows: %v", err)
+			}
+			if !personSliceIsEqual(expected, actualValues) {
+				t.Errorf("expected %#v, got %#v", expected, actualValues)
 			}
 		})
 		t.Run("Can retrieve a subset", func(t *testing.T) {
@@ -58,9 +61,13 @@ func newGetRangeTest(ctx context.Context, store Store[Person]) func(t *testing.T
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}
+			actualValues, err := ValuesOf[Person](actual)
+			if err != nil {
+				t.Errorf("unexpected error converting rows: %v", err)
+			}
 			// The range operation is not inclusive of the end key, so we expect Charlie and David.
-			if !personSliceIsEqual(expected[1:3], slices.Collect(actual.Values())) {
-				t.Errorf("expected %#v, got %#v", expected[1:3], actual)
+			if !personSliceIsEqual(expected[1:3], actualValues) {
+				t.Errorf("expected %#v, got %#v", expected[1:3], actualValues)
 			}
 		})
 		t.Run("Can limit the number of results", func(t *testing.T) {
@@ -68,8 +75,12 @@ func newGetRangeTest(ctx context.Context, store Store[Person]) func(t *testing.T
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}
-			if !personSliceIsEqual(expected[:2], slices.Collect(actual.Values())) {
-				t.Errorf("expected %#v, got %#v", expected[:2], actual)
+			actualValues, err := ValuesOf[Person](actual)
+			if err != nil {
+				t.Errorf("unexpected error converting rows: %v", err)
+			}
+			if !personSliceIsEqual(expected[:2], actualValues) {
+				t.Errorf("expected %#v, got %#v", expected[:2], actualValues)
 			}
 		})
 		t.Run("Can offset the results", func(t *testing.T) {
@@ -77,8 +88,12 @@ func newGetRangeTest(ctx context.Context, store Store[Person]) func(t *testing.T
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}
-			if !personSliceIsEqual(expected[1:], slices.Collect(actual.Values())) {
-				t.Errorf("expected %#v, got %#v", expected[1:], actual)
+			actualValues, err := ValuesOf[Person](actual)
+			if err != nil {
+				t.Errorf("unexpected error converting rows: %v", err)
+			}
+			if !personSliceIsEqual(expected[1:], actualValues) {
+				t.Errorf("expected %#v, got %#v", expected[1:], actualValues)
 			}
 		})
 	}

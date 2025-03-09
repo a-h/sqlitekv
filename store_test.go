@@ -37,7 +37,7 @@ func personSliceIsEqual(a, b []Person) bool {
 	return true
 }
 
-func runStoreTests(t *testing.T, store Store[Person]) {
+func runStoreTests(t *testing.T, store Store) {
 	ctx := context.Background()
 	if err := store.Init(ctx); err != nil {
 		t.Fatalf("unexpected error initializing store: %v", err)

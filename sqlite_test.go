@@ -12,6 +12,8 @@ func TestSqlite(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	store := NewSqlite[Person](pool)
+
+	db := NewSqlite(pool)
+	store := NewStore(db)
 	runStoreTests(t, store)
 }

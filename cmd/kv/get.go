@@ -18,7 +18,8 @@ func (c *GetCommand) Run(ctx context.Context, g GlobalFlags) error {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
 
-	data, ok, err := store.Get(ctx, c.Key)
+	var data map[string]any
+	r, ok, err := store.Get(ctx, c.Key, &data)
 	if err != nil {
 		return fmt.Errorf("failed to get data: %w", err)
 	}
@@ -27,7 +28,7 @@ func (c *GetCommand) Run(ctx context.Context, g GlobalFlags) error {
 	}
 
 	if c.PrintVersion {
-		fmt.Printf("%d", data.Version)
+		fmt.Printf("%d", r.Version)
 		return nil
 	}
 

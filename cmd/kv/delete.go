@@ -15,5 +15,6 @@ func (c *DeleteCommand) Run(ctx context.Context, g GlobalFlags) error {
 		return fmt.Errorf("failed to create store: %w", err)
 	}
 
-	return store.Delete(ctx, c.Key)
+	_, err = store.Delete(ctx, c.Key)
+	return err
 }

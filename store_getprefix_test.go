@@ -2,12 +2,11 @@ package sqlitekv
 
 import (
 	"context"
-	"slices"
 	"strings"
 	"testing"
 )
 
-func newGetPrefixTest(ctx context.Context, store Store[Person]) func(t *testing.T) {
+func newGetPrefixTest(ctx context.Context, store Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		defer store.DeletePrefix(ctx, "*", 0, -1)
 
@@ -41,8 +40,12 @@ func newGetPrefixTest(ctx context.Context, store Store[Person]) func(t *testing.
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}
-			if !personSliceIsEqual(expected, slices.Collect(actual.Values())) {
-				t.Errorf("expected %#v, got %#v", expected, actual)
+			actualValues, err := ValuesOf[Person](actual)
+			if err != nil {
+				t.Errorf("unexpected error getting data: %v", err)
+			}
+			if !personSliceIsEqual(expected, actualValues) {
+				t.Errorf("expected %#v, got %#v", expected, actualValues)
 			}
 		})
 		t.Run("Can limit the number of results", func(t *testing.T) {
@@ -50,8 +53,12 @@ func newGetPrefixTest(ctx context.Context, store Store[Person]) func(t *testing.
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}
-			if !personSliceIsEqual(expected[:2], slices.Collect(actual.Values())) {
-				t.Errorf("expected %#v, got %#v", expected[:2], actual)
+			actualValues, err := ValuesOf[Person](actual)
+			if err != nil {
+				t.Errorf("unexpected error getting data: %v", err)
+			}
+			if !personSliceIsEqual(expected[:2], actualValues) {
+				t.Errorf("expected %#v, got %#v", expected[:2], actualValues)
 			}
 		})
 		t.Run("Can offset the results", func(t *testing.T) {
@@ -59,8 +66,12 @@ func newGetPrefixTest(ctx context.Context, store Store[Person]) func(t *testing.
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}
-			if !personSliceIsEqual(expected[1:], slices.Collect(actual.Values())) {
-				t.Errorf("expected %#v, got %#v", expected[1:], actual)
+			actualValues, err := ValuesOf[Person](actual)
+			if err != nil {
+				t.Errorf("unexpected error getting data: %v", err)
+			}
+			if !personSliceIsEqual(expected[1:], actualValues) {
+				t.Errorf("expected %#v, got %#v", expected[1:], actualValues)
 			}
 		})
 		t.Run("Outside the prefix, no records are returned", func(t *testing.T) {
@@ -68,8 +79,12 @@ func newGetPrefixTest(ctx context.Context, store Store[Person]) func(t *testing.
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}
-			if len(slices.Collect(actual.Values())) != 0 {
-				t.Errorf("expected no records, got %d", len(slices.Collect(actual.Values())))
+			actualValues, err := ValuesOf[Person](actual)
+			if err != nil {
+				t.Errorf("unexpected error getting data: %v", err)
+			}
+			if len(actualValues) != 0 {
+				t.Errorf("expected no records, got %d", len(actualValues))
 			}
 		})
 	}

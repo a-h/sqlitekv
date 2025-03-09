@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func newDeleteTest(ctx context.Context, store Store[Person]) func(t *testing.T) {
+func newDeleteTest(ctx context.Context, store Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		defer store.DeletePrefix(ctx, "*", 0, -1)
 
@@ -18,11 +18,12 @@ func newDeleteTest(ctx context.Context, store Store[Person]) func(t *testing.T) 
 				t.Errorf("unexpected error putting data: %v", err)
 			}
 
-			if err := store.Delete(ctx, "delete"); err != nil {
+			if _, err := store.Delete(ctx, "delete"); err != nil {
 				t.Errorf("unexpected error deleting data: %v", err)
 			}
 
-			_, ok, err := store.Get(ctx, "delete")
+			var r struct{}
+			_, ok, err := store.Get(ctx, "delete", &r)
 			if err != nil {
 				t.Errorf("unexpected error getting data: %v", err)
 			}
@@ -31,8 +32,12 @@ func newDeleteTest(ctx context.Context, store Store[Person]) func(t *testing.T) 
 			}
 		})
 		t.Run("Deleting non-existent keys does not return an error", func(t *testing.T) {
-			if err := store.Delete(ctx, "delete-does-not-exist"); err != nil {
+			deleted, err := store.Delete(ctx, "delete-does-not-exist")
+			if err != nil {
 				t.Errorf("unexpected error deleting data: %v", err)
+			}
+			if deleted != 0 {
+				t.Errorf("expected 0 rows to be deleted, got %d", deleted)
 			}
 		})
 	}
