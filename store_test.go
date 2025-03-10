@@ -3,7 +3,56 @@ package sqlitekv
 import (
 	"context"
 	"testing"
+	"time"
 )
+
+func TestRecordsOf(t *testing.T) {
+	records := []Record{
+		{
+			Key:     "key1",
+			Version: 1,
+			Value:   []byte(`{"name": "Alice", "phone_numbers": ["123", "456"]}`),
+			Created: time.Date(2025, 3, 10, 8, 16, 13, 0, time.UTC),
+		},
+		{
+			Key:     "key2",
+			Version: 3,
+			Value:   []byte(`{"name": "Bob", "phone_numbers": ["789"]}`),
+			Created: time.Date(2025, 3, 10, 8, 16, 13, 0, time.UTC),
+		},
+	}
+	peopleRecords, err := RecordsOf[Person](records)
+	if err != nil {
+		t.Fatalf("unexpected error unmarshaling records: %v", err)
+	}
+	if len(peopleRecords) != 2 {
+		t.Fatalf("expected 2 people, got %d", len(peopleRecords))
+	}
+	if peopleRecords[0].Key != "key1" {
+		t.Fatalf("expected key1, got %s", peopleRecords[0].Key)
+	}
+	if peopleRecords[0].Version != 1 {
+		t.Fatalf("expected version 1, got %d", peopleRecords[0].Version)
+	}
+	if peopleRecords[0].Value.Name != "Alice" {
+		t.Fatalf("expected Alice, got %s", peopleRecords[0].Value.Name)
+	}
+	if !peopleRecords[0].Created.Equal(time.Date(2025, 3, 10, 8, 16, 13, 0, time.UTC)) {
+		t.Fatalf("expected 2025-03-10 08:16:13, got %s", peopleRecords[0].Created)
+	}
+	if peopleRecords[1].Key != "key2" {
+		t.Fatalf("expected key2, got %s", peopleRecords[1].Key)
+	}
+	if peopleRecords[1].Version != 3 {
+		t.Fatalf("expected version 3, got %d", peopleRecords[1].Version)
+	}
+	if peopleRecords[1].Value.Name != "Bob" {
+		t.Fatalf("expected Bob, got %s", peopleRecords[1].Value.Name)
+	}
+	if !peopleRecords[1].Created.Equal(time.Date(2025, 3, 10, 8, 16, 13, 0, time.UTC)) {
+		t.Fatalf("expected 2025-03-10 08:16:13, got %s", peopleRecords[1].Created)
+	}
+}
 
 type Person struct {
 	Name         string   `json:"name"`
