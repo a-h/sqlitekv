@@ -33,15 +33,15 @@ func newGetTest(ctx context.Context, store Store) func(t *testing.T) {
 				t.Errorf("expected version 1, got %d", r.Version)
 			}
 		})
-		//t.Run("Returns ok=false if the key does not exist", func(t *testing.T) {
-		//var actual Person
-		//_, ok, err := store.Get(ctx, "get-does-not-exist", &actual)
-		//if err != nil {
-		//t.Errorf("unexpected error getting data: %v", err)
-		//}
-		//if ok {
-		//t.Error("expected data not to be found")
-		//}
-		//})
+		t.Run("Returns ok=false if the key does not exist", func(t *testing.T) {
+			var actual Person
+			_, ok, err := store.Get(ctx, "get-does-not-exist", &actual)
+			if err != nil {
+				t.Errorf("unexpected error getting data: %v", err)
+			}
+			if ok {
+				t.Error("expected data not to be found")
+			}
+		})
 	}
 }

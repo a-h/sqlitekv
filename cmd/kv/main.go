@@ -61,6 +61,7 @@ type CLI struct {
 	GetRange     GetRangeCommand     `cmd:"get-range" help:"Get a range of keys."`
 	List         ListCommand         `cmd:"list" help:"List all keys."`
 	Put          PutCommand          `cmd:"put" help:"Put a key."`
+	PutAll       PutAllCommand       `cmd:"put-all" help:"Put all keys."`
 	Delete       DeleteCommand       `cmd:"delete" help:"Delete a key."`
 	DeletePrefix DeletePrefixCommand `cmd:"delete-prefix" help:"Delete all keys with a given prefix."`
 	DeleteRange  DeleteRangeCommand  `cmd:"delete-range" help:"Delete a range of keys."`

@@ -23,7 +23,7 @@ type Sqlite struct {
 
 func (s *Sqlite) isDB() DB { return s }
 
-func (s *Sqlite) Query(ctx context.Context, queries ...QueryInput) (outputs [][]Record, err error) {
+func (s *Sqlite) Query(ctx context.Context, queries ...Query) (outputs [][]Record, err error) {
 	conn, err := s.pool.Take(ctx)
 	if err != nil {
 		return nil, err
@@ -32,12 +32,8 @@ func (s *Sqlite) Query(ctx context.Context, queries ...QueryInput) (outputs [][]
 
 	outputs = make([][]Record, len(queries))
 	for i, q := range queries {
-		named, err := q.Args()
-		if err != nil {
-			return nil, fmt.Errorf("query: index %d: %w", i, err)
-		}
 		opts := &sqlitex.ExecOptions{
-			Named: named,
+			Named: q.Args,
 			ResultFunc: func(stmt *sqlite.Stmt) (err error) {
 				valueBytes, err := io.ReadAll(stmt.GetReader("value"))
 				if err != nil {
@@ -65,7 +61,7 @@ func (s *Sqlite) Query(ctx context.Context, queries ...QueryInput) (outputs [][]
 	return outputs, nil
 }
 
-func (s *Sqlite) Mutate(ctx context.Context, mutations ...MutationInput) (outputs []MutationOutput, err error) {
+func (s *Sqlite) Mutate(ctx context.Context, mutations ...Mutation) (outputs []MutationOutput, err error) {
 	conn, err := s.pool.Take(ctx)
 	if err != nil {
 		return nil, err
@@ -79,12 +75,8 @@ func (s *Sqlite) Mutate(ctx context.Context, mutations ...MutationInput) (output
 
 	outputs = make([]MutationOutput, len(mutations))
 	for i, m := range mutations {
-		named, err := m.Args()
-		if err != nil {
-			return nil, fmt.Errorf("mutate: index %d: %w", i, err)
-		}
 		opts := &sqlitex.ExecOptions{
-			Named: named,
+			Named: m.Args,
 		}
 		if err = sqlitex.Execute(conn, m.SQL, opts); err != nil {
 			err = fmt.Errorf("mutate: error in mutation index %d: %w", i, err)

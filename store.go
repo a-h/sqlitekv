@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -55,20 +57,20 @@ func RecordsOf[T any](records []Record) (values []RecordOf[T], err error) {
 
 type DB interface {
 	// Query runs queries against the store. The query should return rows, and the rows are returned as-is.
-	Query(ctx context.Context, queries ...QueryInput) (output [][]Record, err error)
+	Query(ctx context.Context, queries ...Query) (output [][]Record, err error)
 	// Mutate runs mutations against the store.
-	Mutate(ctx context.Context, mutations ...MutationInput) (output []MutationOutput, err error)
+	Mutate(ctx context.Context, mutations ...Mutation) (output []MutationOutput, err error)
 	QueryScalarInt64(ctx context.Context, query string, args map[string]any) (n int64, err error)
 }
 
-type QueryInput struct {
+type Query struct {
 	SQL  string
-	Args func() (args map[string]any, err error)
+	Args map[string]any
 }
 
-type MutationInput struct {
+type Mutation struct {
 	SQL  string
-	Args func() (args map[string]any, err error)
+	Args map[string]any
 }
 
 type MutationOutput struct {
@@ -77,19 +79,32 @@ type MutationOutput struct {
 
 func newErrVersionMismatch(key string, expectedVersion int64) ErrVersionMismatch {
 	return ErrVersionMismatch{
-		Key:             key,
-		ExpectedVersion: expectedVersion,
+		KeyToVersion: map[string]int64{
+			key: expectedVersion,
+		},
+	}
+}
+
+func newErrVersionMismatchAll(keyToVersion map[string]int64) ErrVersionMismatch {
+	return ErrVersionMismatch{
+		KeyToVersion: keyToVersion,
 	}
 }
 
 // ErrVersionMismatch is returned when the version of a key does not match the expected version, typically the result of an optimistic lock failure.
 type ErrVersionMismatch struct {
-	Key             string
-	ExpectedVersion int64
+	KeyToVersion map[string]int64
 }
 
 func (e ErrVersionMismatch) Error() string {
-	return fmt.Sprintf("version mismatch for key %q: expected %d, but wasn't found", e.Key, e.ExpectedVersion)
+	keys := make([]string, len(e.KeyToVersion))
+	keyToValueStrings := make([]string, len(e.KeyToVersion))
+	slices.Sort(keys)
+	for _, key := range keys {
+		keyToValueStrings = append(keyToValueStrings, fmt.Sprintf("%q: %d", key, e.KeyToVersion[key]))
+	}
+
+	return fmt.Sprintf("key version mismatch: [ %s ]", strings.Join(keyToValueStrings, ", "))
 }
 
 func NewStore(db DB) Store {
@@ -164,12 +179,36 @@ func (s *Store) List(ctx context.Context, start, limit int) (rows []Record, err 
 //
 // If the version is 0, it will only insert the key if it does not already exist.
 func (s *Store) Put(ctx context.Context, key string, version int64, value any) (err error) {
-	outputs, err := s.db.Mutate(ctx, Put(key, version, value))
+	put, err := Put(key, version, value)
+	if err != nil {
+		return fmt.Errorf("put: %w", err)
+	}
+	outputs, err := s.db.Mutate(ctx, put)
 	if err != nil {
 		return fmt.Errorf("put: %w", err)
 	}
 	if outputs[0].RowsAffected == 0 {
 		return newErrVersionMismatch(key, version)
+	}
+	return nil
+}
+
+// PutAll puts multiple keys into the store, in a single transaction.
+func (s *Store) PutAll(ctx context.Context, inputs ...PutInput) (err error) {
+	put, err := PutAll(inputs...)
+	if err != nil {
+		return fmt.Errorf("putall: %w", err)
+	}
+	outputs, err := s.db.Mutate(ctx, put)
+	if err != nil {
+		return fmt.Errorf("putall: %w", err)
+	}
+	if outputs[0].RowsAffected != int64(len(inputs)) {
+		keyToVersion := make(map[string]int64)
+		for _, input := range inputs {
+			keyToVersion[input.Key] = input.Version
+		}
+		return newErrVersionMismatchAll(keyToVersion)
 	}
 	return nil
 }
@@ -210,11 +249,7 @@ func (s *Store) DeleteRange(ctx context.Context, from, to string, offset, limit 
 // Count returns the number of keys in the store.
 func (s *Store) Count(ctx context.Context) (n int64, err error) {
 	query := count()
-	args, err := query.Args()
-	if err != nil {
-		return 0, fmt.Errorf("count: %w", err)
-	}
-	n, err = s.db.QueryScalarInt64(ctx, query.SQL, args)
+	n, err = s.db.QueryScalarInt64(ctx, query.SQL, query.Args)
 	if err != nil {
 		return 0, fmt.Errorf("count: %w", err)
 	}
@@ -224,11 +259,7 @@ func (s *Store) Count(ctx context.Context) (n int64, err error) {
 // CountPrefix returns the number of keys in the store with a given prefix.
 func (s *Store) CountPrefix(ctx context.Context, prefix string) (count int64, err error) {
 	query := countPrefix(prefix)
-	args, err := query.Args()
-	if err != nil {
-		return 0, fmt.Errorf("countprefix: %w", err)
-	}
-	count, err = s.db.QueryScalarInt64(ctx, query.SQL, args)
+	count, err = s.db.QueryScalarInt64(ctx, query.SQL, query.Args)
 	if err != nil {
 		return 0, fmt.Errorf("countprefix: %w", err)
 	}
@@ -238,11 +269,7 @@ func (s *Store) CountPrefix(ctx context.Context, prefix string) (count int64, er
 // CountRange returns the number of keys in the store between the key from (inclusive) and to (exclusive).
 func (s *Store) CountRange(ctx context.Context, from, to string) (count int64, err error) {
 	query := countRange(from, to)
-	args, err := query.Args()
-	if err != nil {
-		return 0, fmt.Errorf("countrange: %w", err)
-	}
-	count, err = s.db.QueryScalarInt64(ctx, query.SQL, args)
+	count, err = s.db.QueryScalarInt64(ctx, query.SQL, query.Args)
 	if err != nil {
 		return 0, fmt.Errorf("countrange: %w", err)
 	}
@@ -251,7 +278,11 @@ func (s *Store) CountRange(ctx context.Context, from, to string) (count int64, e
 
 // Patch patches a key in the store. The patch is a JSON merge patch (RFC 7396), so would look something like map[string]any{"key": "value"}.
 func (s *Store) Patch(ctx context.Context, key string, version int64, patch any) (err error) {
-	outputs, err := s.db.Mutate(ctx, Patch(key, version, patch))
+	patchMutation, err := Patch(key, version, patch)
+	if err != nil {
+		return fmt.Errorf("patch: %w", err)
+	}
+	outputs, err := s.db.Mutate(ctx, patchMutation)
 	if err != nil {
 		return fmt.Errorf("patch: %w", err)
 	}

@@ -25,16 +25,12 @@ type Rqlite struct {
 
 func (r *Rqlite) isDB() DB { return r }
 
-func (rq *Rqlite) Query(ctx context.Context, queries ...QueryInput) (outputs [][]Record, err error) {
+func (rq *Rqlite) Query(ctx context.Context, queries ...Query) (outputs [][]Record, err error) {
 	statements := make(rqlitehttp.SQLStatements, len(queries))
 	for i, query := range queries {
-		args, err := query.Args()
-		if err != nil {
-			return nil, fmt.Errorf("query: %w", err)
-		}
 		statements[i] = rqlitehttp.SQLStatement{
 			SQL:         query.SQL,
-			NamedParams: convertToRqlite(args),
+			NamedParams: convertToRqlite(query.Args),
 		}
 	}
 	opts := &rqlitehttp.QueryOptions{
@@ -103,16 +99,12 @@ func tryGetInt64(v any) (int64, error) {
 	return int64(floatValue), nil
 }
 
-func (rq *Rqlite) Mutate(ctx context.Context, mutations ...MutationInput) (output []MutationOutput, err error) {
+func (rq *Rqlite) Mutate(ctx context.Context, mutations ...Mutation) (output []MutationOutput, err error) {
 	statements := make(rqlitehttp.SQLStatements, len(mutations))
 	for i, mutation := range mutations {
-		args, err := mutation.Args()
-		if err != nil {
-			return nil, fmt.Errorf("mutate: index %d: %w", i, err)
-		}
 		statements[i] = rqlitehttp.SQLStatement{
 			SQL:         mutation.SQL,
-			NamedParams: convertToRqlite(args),
+			NamedParams: convertToRqlite(mutation.Args),
 		}
 	}
 	opts := &rqlitehttp.ExecuteOptions{
@@ -167,6 +159,9 @@ func (rq *Rqlite) QueryScalarInt64(ctx context.Context, sql string, params map[s
 }
 
 func convertToRqlite(args map[string]any) (updated map[string]any) {
+	if args == nil {
+		return nil
+	}
 	updated = make(map[string]any, len(args))
 	for k, v := range args {
 		updated[strings.TrimPrefix(k, ":")] = v

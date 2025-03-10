@@ -102,6 +102,7 @@ func runStoreTests(t *testing.T, store Store) {
 	t.Run("GetRange", newGetRangeTest(ctx, store))
 	t.Run("List", newListTest(ctx, store))
 	t.Run("Put", newPutTest(ctx, store))
+	t.Run("PutAll", newPutAllTest(ctx, store))
 	t.Run("Delete", newDeleteTest(ctx, store))
 	t.Run("DeletePrefix", newDeletePrefixTest(ctx, store))
 	t.Run("DeleteRange", newDeleteRangeTest(ctx, store))
