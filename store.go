@@ -4,14 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 // Record is the record stored in the store prior to being unmarshaled.
 type Record struct {
-	Key     string `json:"key"`
-	Version int64  `json:"version"`
-	Value   []byte `json:"value"`
+	Key     string    `json:"key"`
+	Version int64     `json:"version"`
+	Value   []byte    `json:"value"`
+	Created time.Time `json:"created"`
 }
+
+// 2025-03-10 08:16:13
+var sqliteTimeFormat = "2006-01-02 15:04:05"
 
 // ValuesOf returns the values of the records, unmarshaled into the given type.
 func ValuesOf[T any](records []Record) (values []T, err error) {
@@ -26,9 +31,10 @@ func ValuesOf[T any](records []Record) (values []T, err error) {
 }
 
 type RecordOf[T any] struct {
-	Key     string `json:"key"`
-	Version int64  `json:"version"`
-	Value   T      `json:"value"`
+	Key     string    `json:"key"`
+	Version int64     `json:"version"`
+	Value   T         `json:"value"`
+	Created time.Time `json:"created"`
 }
 
 // RecordsOf returns the records, with the value unmarshaled into a type.
@@ -42,6 +48,7 @@ func RecordsOf[T any](records []Record) (values []RecordOf[T], err error) {
 		}
 		values[i].Key = r.Key
 		values[i].Version = r.Version
+		values[i].Created = r.Created
 	}
 	return values, nil
 }

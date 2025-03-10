@@ -5,11 +5,15 @@ import "encoding/json"
 func Init() []MutationInput {
 	return []MutationInput{
 		{
-			SQL:  `create table if not exists kv (key text primary key, version integer, value jsonb) without rowid;`,
+			SQL:  `create table if not exists kv (key text primary key, version integer, value jsonb, created text) without rowid;`,
 			Args: argsOf(nil),
 		},
 		{
 			SQL:  `create index if not exists kv_key on kv(key);`,
+			Args: argsOf(nil),
+		},
+		{
+			SQL:  `create index if not exists kv_created on kv(created);`,
 			Args: argsOf(nil),
 		},
 	}
@@ -23,7 +27,7 @@ func argsOf(args map[string]any) func() (map[string]any, error) {
 
 func Get(key string) QueryInput {
 	return QueryInput{
-		SQL: `select key, version, json(value) as value from kv where key = :key;`,
+		SQL: `select key, version, json(value) as value, created from kv where key = :key;`,
 		Args: argsOf(map[string]any{
 			":key": key,
 		}),
@@ -32,7 +36,7 @@ func Get(key string) QueryInput {
 
 func GetPrefix(prefix string, offset, limit int) QueryInput {
 	return QueryInput{
-		SQL: `select key, version, json(value) as value from kv where key like :prefix order by key limit :limit offset :offset;`,
+		SQL: `select key, version, json(value) as value, created from kv where key like :prefix order by key limit :limit offset :offset;`,
 		Args: argsOf(map[string]any{
 			":prefix": prefix + "%",
 			":limit":  limit,
@@ -43,7 +47,7 @@ func GetPrefix(prefix string, offset, limit int) QueryInput {
 
 func GetRange(from, to string, offset, limit int) QueryInput {
 	return QueryInput{
-		SQL: `select key, version, json(value) as value from kv where key >= :from and key < :to order by key limit :limit offset :offset;`,
+		SQL: `select key, version, json(value) as value, created from kv where key >= :from and key < :to order by key limit :limit offset :offset;`,
 		Args: argsOf(map[string]any{
 			":from":   from,
 			":to":     to,
@@ -55,7 +59,7 @@ func GetRange(from, to string, offset, limit int) QueryInput {
 
 func List(offset, limit int) QueryInput {
 	return QueryInput{
-		SQL: `select key, version, json(value) as value from kv order by key limit :limit offset :offset;`,
+		SQL: `select key, version, json(value) as value, created from kv order by key limit :limit offset :offset;`,
 		Args: argsOf(map[string]any{
 			":offset": offset,
 			":limit":  limit,
@@ -65,7 +69,7 @@ func List(offset, limit int) QueryInput {
 
 func Put(key string, version int64, value any) MutationInput {
 	return MutationInput{
-		SQL: `insert into kv (key, version, value) values (:key, 1, jsonb(:value)) on conflict(key) do update set version = excluded.version + 1, value = jsonb(excluded.value) where (:version = -1 or version = :version) and (version <> 0);`,
+		SQL: `insert into kv (key, version, value, created) values (:key, 1, jsonb(:value), datetime('subsec')) on conflict(key) do update set version = excluded.version + 1, value = jsonb(excluded.value) where (:version = -1 or version = :version) and (:version <> 0);`,
 		Args: func() (args map[string]any, err error) {
 			jsonValue, err := json.Marshal(value)
 			if err != nil {
@@ -149,7 +153,7 @@ func countRange(from, to string) QueryInput {
 
 func Patch(key string, version int64, patch any) MutationInput {
 	return MutationInput{
-		SQL: `insert into kv (key, version, value) values (:key, 1, jsonb(:value)) on conflict(key) do update set version = excluded.version + 1, value = jsonb_patch(kv.value, excluded.value) where (:version = -1 or version = :version);`,
+		SQL: `insert into kv (key, version, value, created) values (:key, 1, jsonb(:value), datetime('subsec')) on conflict(key) do update set version = excluded.version + 1, value = jsonb_patch(kv.value, excluded.value) where (:version = -1 or version = :version);`,
 		Args: func() (map[string]any, error) {
 			jsonPatch, err := json.Marshal(patch)
 			if err != nil {

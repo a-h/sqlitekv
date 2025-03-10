@@ -66,18 +66,18 @@ func (rq *Rqlite) Query(ctx context.Context, queries ...QueryInput) (outputs [][
 }
 
 func checkResultColumns(result rqlitehttp.QueryResult) (err error) {
-	if len(result.Columns) != 3 {
-		return fmt.Errorf("record: expected 3 columns, got %d", len(result.Columns))
+	if len(result.Columns) != 4 {
+		return fmt.Errorf("record: expected 4 columns, got %d", len(result.Columns))
 	}
-	if result.Columns[0] != "key" || result.Columns[1] != "version" || result.Columns[2] != "value" {
-		return fmt.Errorf("record: expected id, key, version and value columns not found, got: %#v", result.Columns)
+	if result.Columns[0] != "key" || result.Columns[1] != "version" || result.Columns[2] != "value" || result.Columns[3] != "created" {
+		return fmt.Errorf("record: expected id, key, version, value and created columns not found, got: %#v", result.Columns)
 	}
 	return nil
 }
 
 func newRowFromValues(values []any) (r Record, err error) {
-	if len(values) != 3 {
-		return r, fmt.Errorf("row: expected 3 columns, got %d", len(values))
+	if len(values) != 4 {
+		return r, fmt.Errorf("row: expected 4 columns, got %d", len(values))
 	}
 	var ok bool
 	r.Key, ok = values[0].(string)
@@ -88,6 +88,10 @@ func newRowFromValues(values []any) (r Record, err error) {
 		return r, fmt.Errorf("row: version: %w", err)
 	}
 	r.Value = []byte(values[2].(string))
+	r.Created, err = time.Parse(sqliteTimeFormat, values[3].(string))
+	if err != nil {
+		return r, fmt.Errorf("row: failed to parse created time: %w", err)
+	}
 	return r, nil
 }
 

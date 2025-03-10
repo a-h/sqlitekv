@@ -69,5 +69,45 @@ func newPatchTest(ctx context.Context, store Store) func(t *testing.T) {
 				t.Errorf("expected name %q, got %q", patch["name"].(string), updated.Name)
 			}
 		})
+		t.Run("The created field is set and not updated", func(t *testing.T) {
+			defer store.DeletePrefix(ctx, "*", 0, -1)
+
+			data := map[string]any{
+				"key": "value",
+			}
+			err := store.Patch(ctx, "put", -1, data)
+			if err != nil {
+				t.Errorf("unexpected error putting data: %v", err)
+			}
+
+			var v struct{}
+			r1, ok, err := store.Get(ctx, "put", &v)
+			if err != nil {
+				t.Errorf("unexpected error getting data: %v", err)
+			}
+			if !ok {
+				t.Error("expected data not found")
+			}
+			if r1.Created.IsZero() {
+				t.Error("expected created time to be set")
+			}
+
+			// Update.
+			data["key"] = "value2"
+			err = store.Patch(ctx, "put", -1, data)
+			if err != nil {
+				t.Errorf("unexpected error putting data: %v", err)
+			}
+			r2, ok, err := store.Get(ctx, "put", &v)
+			if err != nil {
+				t.Errorf("unexpected error getting data: %v", err)
+			}
+			if !ok {
+				t.Error("expected data not found")
+			}
+			if !r2.Created.Equal(r1.Created) {
+				t.Errorf("expected created time to not change from %v, but got %v", r1.Created, r2.Created)
+			}
+		})
 	}
 }

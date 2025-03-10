@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
@@ -42,11 +43,17 @@ func (s *Sqlite) Query(ctx context.Context, queries ...QueryInput) (outputs [][]
 				if err != nil {
 					return fmt.Errorf("query: error reading value: %w", err)
 				}
-				outputs[i] = append(outputs[i], Record{
+				created, err := time.Parse(sqliteTimeFormat, stmt.GetText("created"))
+				if err != nil {
+					return fmt.Errorf("query: error parsing created time: %w", err)
+				}
+				r := Record{
 					Key:     stmt.GetText("key"),
 					Version: stmt.GetInt64("version"),
 					Value:   valueBytes,
-				})
+					Created: created,
+				}
+				outputs[i] = append(outputs[i], r)
 				return nil
 			},
 		}
