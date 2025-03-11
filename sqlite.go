@@ -76,6 +76,7 @@ func (s *Sqlite) Mutate(ctx context.Context, mutations ...Mutation) (outputs []M
 		}
 		if err = sqlitex.Execute(conn, m.SQL, opts); err != nil {
 			errs[i] = fmt.Errorf("mutate: error in mutation index %d: %w", i, err)
+			continue
 		}
 		outputs[i].RowsAffected = int64(conn.Changes())
 	}
