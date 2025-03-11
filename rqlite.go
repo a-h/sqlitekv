@@ -84,7 +84,7 @@ func newRowFromValues(values []any) (r Record, err error) {
 		return r, fmt.Errorf("row: version: %w", err)
 	}
 	r.Value = []byte(values[2].(string))
-	r.Created, err = time.Parse(sqliteTimeFormat, values[3].(string))
+	r.Created, err = time.Parse(time.RFC3339Nano, values[3].(string))
 	if err != nil {
 		return r, fmt.Errorf("row: failed to parse created time: %w", err)
 	}

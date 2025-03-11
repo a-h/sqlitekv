@@ -39,7 +39,7 @@ func (s *Sqlite) Query(ctx context.Context, queries ...Query) (outputs [][]Recor
 				if err != nil {
 					return fmt.Errorf("query: error reading value: %w", err)
 				}
-				created, err := time.Parse(sqliteTimeFormat, stmt.GetText("created"))
+				created, err := time.Parse(time.RFC3339Nano, stmt.GetText("created"))
 				if err != nil {
 					return fmt.Errorf("query: error parsing created time: %w", err)
 				}
@@ -68,30 +68,19 @@ func (s *Sqlite) Mutate(ctx context.Context, mutations ...Mutation) (outputs []M
 	}
 	defer s.pool.Put(conn)
 
-	err = sqlitex.Execute(conn, "begin transaction;", nil)
-	if err != nil {
-		return nil, fmt.Errorf("mutate: error starting transaction: %w", err)
-	}
-
 	outputs = make([]MutationOutput, len(mutations))
+	errs := make([]error, len(mutations))
 	for i, m := range mutations {
 		opts := &sqlitex.ExecOptions{
 			Named: m.Args,
 		}
 		if err = sqlitex.Execute(conn, m.SQL, opts); err != nil {
-			err = fmt.Errorf("mutate: error in mutation index %d: %w", i, err)
-			rollbackErr := sqlitex.Execute(conn, "rollback;", nil)
-			return outputs, errors.Join(err, rollbackErr)
+			errs[i] = fmt.Errorf("mutate: error in mutation index %d: %w", i, err)
 		}
 		outputs[i].RowsAffected = int64(conn.Changes())
 	}
 
-	err = sqlitex.Execute(conn, "commit;", nil)
-	if err != nil {
-		return nil, fmt.Errorf("mutate: error committing transaction: %w", err)
-	}
-
-	return outputs, nil
+	return outputs, errors.Join(errs...)
 }
 
 func (s *Sqlite) QueryScalarInt64(ctx context.Context, sql string, params map[string]any) (v int64, err error) {

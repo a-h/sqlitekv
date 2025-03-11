@@ -1,6 +1,8 @@
 package sqlitekv
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 func Init() []Mutation {
 	return []Mutation{
@@ -65,7 +67,7 @@ func Put(key string, version int64, value any) (m Mutation, err error) {
 	}
 	m = Mutation{
 		SQL: `insert into kv (key, version, value, created)
-values (:key, 1, jsonb(:value), datetime('subsec'))
+values (:key, 1, jsonb(:value), :now)
 on conflict(key) do update 
 set version = excluded.version + 1, 
     value = jsonb(excluded.value)
@@ -74,6 +76,7 @@ where (:version = -1 or version = :version) and (:version <> 0);`,
 			":key":     key,
 			":version": version,
 			":value":   string(jsonValue),
+			":now":     now(),
 		},
 	}
 	return m, nil
@@ -119,7 +122,7 @@ select
     valid_updates.key,
     1,
     jsonb(valid_updates.value),
-    datetime('subsec')
+		:now
 from valid_updates
 where (select count(*) from input_data) = (select count(*) from valid_updates)
 on conflict(key) do update
@@ -129,6 +132,7 @@ set
 where (select count(*) from input_data) = (select count(*) from valid_updates);`,
 		Args: map[string]any{
 			":json_data": string(jsonData),
+			":now":       now(),
 		},
 	}
 	return m, nil
@@ -205,7 +209,7 @@ func Patch(key string, version int64, patch any) (m Mutation, err error) {
 	}
 	m = Mutation{
 		SQL: `insert into kv (key, version, value, created)
-values (:key, 1, jsonb(:value), datetime('subsec'))
+values (:key, 1, jsonb(:value), :now)
 on conflict(key) do update 
 set version = excluded.version + 1, 
     value = jsonb_patch(kv.value, excluded.value)
@@ -214,6 +218,7 @@ where (:version = -1 or version = :version);`,
 			":key":     key,
 			":version": version,
 			":value":   string(jsonPatch),
+			":now":     now(),
 		},
 	}
 	return m, nil

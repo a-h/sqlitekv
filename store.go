@@ -17,8 +17,14 @@ type Record struct {
 	Created time.Time `json:"created"`
 }
 
-// 2025-03-10 08:16:13
-var sqliteTimeFormat = "2006-01-02 15:04:05"
+var testTime time.Time
+
+func now() string {
+	if !testTime.IsZero() {
+		return testTime.UTC().Format(time.RFC3339Nano)
+	}
+	return time.Now().UTC().Format(time.RFC3339Nano)
+}
 
 // ValuesOf returns the values of the records, unmarshaled into the given type.
 func ValuesOf[T any](records []Record) (values []T, err error) {
@@ -290,4 +296,13 @@ func (s *Store) Patch(ctx context.Context, key string, version int64, patch any)
 		return newErrVersionMismatch(key, version)
 	}
 	return nil
+}
+
+// Select runs a select query against the store, and returns the results.
+func (s *Store) Select(ctx context.Context, query string, args map[string]any) (output []Record, err error) {
+	outputs, err := s.db.Query(ctx, Query{SQL: query, Args: args})
+	if err != nil {
+		return nil, fmt.Errorf("select: %w", err)
+	}
+	return outputs[0], nil
 }

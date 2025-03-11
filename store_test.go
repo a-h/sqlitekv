@@ -110,6 +110,7 @@ func runStoreTests(t *testing.T, store Store) {
 	t.Run("CountPrefix", newCountPrefixTest(ctx, store))
 	t.Run("CountRange", newCountRangeTest(ctx, store))
 	t.Run("Patch", newPatchTest(ctx, store))
+	t.Run("Select", newSelectTest(ctx, store))
 
 	deleted, err := store.DeletePrefix(ctx, "*", 0, -1)
 	if err != nil {
