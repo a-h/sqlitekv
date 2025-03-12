@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/a-h/sqlitekv/statements"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -23,7 +24,7 @@ type Sqlite struct {
 
 func (s *Sqlite) isDB() DB { return s }
 
-func (s *Sqlite) Query(ctx context.Context, queries ...Query) (outputs [][]Record, err error) {
+func (s *Sqlite) Query(ctx context.Context, queries ...statements.Query) (outputs [][]Record, err error) {
 	conn, err := s.pool.Take(ctx)
 	if err != nil {
 		return nil, err
@@ -61,14 +62,14 @@ func (s *Sqlite) Query(ctx context.Context, queries ...Query) (outputs [][]Recor
 	return outputs, nil
 }
 
-func (s *Sqlite) Mutate(ctx context.Context, mutations ...Mutation) (outputs []MutationOutput, err error) {
+func (s *Sqlite) Mutate(ctx context.Context, mutations ...statements.Mutation) (outputs []statements.MutationOutput, err error) {
 	conn, err := s.pool.Take(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer s.pool.Put(conn)
 
-	outputs = make([]MutationOutput, len(mutations))
+	outputs = make([]statements.MutationOutput, len(mutations))
 	errs := make([]error, len(mutations))
 	for i, m := range mutations {
 		opts := &sqlitex.ExecOptions{

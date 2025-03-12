@@ -1,8 +1,33 @@
-package sqlitekv
+package statements
 
 import (
+	_ "embed"
 	"encoding/json"
+	"time"
 )
+
+var TestTime time.Time
+
+func now() string {
+	if !TestTime.IsZero() {
+		return TestTime.UTC().Format(time.RFC3339Nano)
+	}
+	return time.Now().UTC().Format(time.RFC3339Nano)
+}
+
+type Query struct {
+	SQL  string
+	Args map[string]any
+}
+
+type Mutation struct {
+	SQL  string
+	Args map[string]any
+}
+
+type MutationOutput struct {
+	RowsAffected int64
+}
 
 func Init() []Mutation {
 	return []Mutation{
@@ -82,57 +107,49 @@ where (:version = -1 or version = :version) and (:version <> 0);`,
 	return m, nil
 }
 
-type PutInput struct {
-	Key     string `json:"key"`
-	Version int64  `json:"version"`
-	Value   any    `json:"value"`
+type PutPatchInput struct {
+	Key       string `json:"key"`
+	Version   int64  `json:"version"`
+	Value     any    `json:"value"`
+	Operation string `json:"operation"`
 }
 
-func PutAll(puts ...PutInput) (m Mutation, err error) {
-	jsonData, err := json.Marshal(puts)
+//go:embed putpatch.sql
+var putPatchSQL string
+
+func PutPatches(operations ...PutPatchInput) (m Mutation, err error) {
+	putsAndPatches := []PutPatchInput{}
+	for _, op := range operations {
+		switch op.Operation {
+		case "put":
+			putsAndPatches = append(putsAndPatches, op)
+		case "patch":
+			putsAndPatches = append(putsAndPatches, op)
+		}
+	}
+	putsAndPatchesJSON, err := json.Marshal(putsAndPatches)
 	if err != nil {
 		return Mutation{}, err
 	}
-	// This query is more complex...
-	//
-	// The input_data CTE extracts key, version, and value from the input JSON into a table.
-	// The valid_updates CTE joins the input_data with the existing data, filtering out any invalid updates.
-	//
-	// The insert statement upserts the valid updates into the kv table, using a count of the input_data and valid_updates to ensure that if any invalid updates are present, the entire transaction is rolled back.
 	m = Mutation{
-		SQL: `with input_data as (
-    select
-        json_extract(value, '$.key') as key,
-        json_extract(value, '$.version') as version,
-        json_extract(value, '$.value') as value
-    from json_each(:json_data)
-),
-valid_updates as (
-    select
-        input_data.key,
-        input_data.version,
-        input_data.value,
-        kv.version as existing_version
-    from input_data
-    left join kv on kv.key = input_data.key
-		where (input_data.version = -1 or kv.version = input_data.version) and (input_data.version <> 0)
-)
-insert into kv (key, version, value, created)
-select
-    valid_updates.key,
-    1,
-    jsonb(valid_updates.value),
-		:now
-from valid_updates
-where (select count(*) from input_data) = (select count(*) from valid_updates)
-on conflict(key) do update
-set
-    version = kv.version + 1,
-    value = jsonb(excluded.value)
-where (select count(*) from input_data) = (select count(*) from valid_updates);`,
+		SQL: putPatchSQL,
 		Args: map[string]any{
-			":json_data": string(jsonData),
-			":now":       now(),
+			":input_data": string(putsAndPatchesJSON),
+			":now":        now(),
+		},
+	}
+	return m, nil
+}
+
+func DeleteKeys(keys ...string) (m Mutation, err error) {
+	keysJSON, err := json.Marshal(keys)
+	if err != nil {
+		return Mutation{}, err
+	}
+	m = Mutation{
+		SQL: `delete from kv where key in (select value from json_each(:keys))`,
+		Args: map[string]any{
+			":keys": string(keysJSON),
 		},
 	}
 	return m, nil
@@ -177,13 +194,13 @@ func DeleteRange(from, to string, offset, limit int) Mutation {
 	}
 }
 
-func count() Query {
+func Count() Query {
 	return Query{
 		SQL: `select count(*) from kv;`,
 	}
 }
 
-func countPrefix(prefix string) Query {
+func CountPrefix(prefix string) Query {
 	return Query{
 		SQL: `select count(*) from kv where key like :prefix;`,
 		Args: map[string]any{
@@ -192,7 +209,7 @@ func countPrefix(prefix string) Query {
 	}
 }
 
-func countRange(from, to string) Query {
+func CountRange(from, to string) Query {
 	return Query{
 		SQL: `select count(*) from kv where key >= :from and key < :to;`,
 		Args: map[string]any{

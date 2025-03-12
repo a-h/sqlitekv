@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/a-h/sqlitekv/statements"
 	rqlitehttp "github.com/rqlite/rqlite-go-http"
 )
 
@@ -25,10 +26,10 @@ type Rqlite struct {
 
 func (r *Rqlite) isDB() DB { return r }
 
-func (rq *Rqlite) Query(ctx context.Context, queries ...Query) (outputs [][]Record, err error) {
-	statements := make(rqlitehttp.SQLStatements, len(queries))
+func (rq *Rqlite) Query(ctx context.Context, queries ...statements.Query) (outputs [][]Record, err error) {
+	stmts := make(rqlitehttp.SQLStatements, len(queries))
 	for i, query := range queries {
-		statements[i] = rqlitehttp.SQLStatement{
+		stmts[i] = rqlitehttp.SQLStatement{
 			SQL:         query.SQL,
 			NamedParams: convertToRqlite(query.Args),
 		}
@@ -37,7 +38,7 @@ func (rq *Rqlite) Query(ctx context.Context, queries ...Query) (outputs [][]Reco
 		Timeout: rq.Timeout,
 		Level:   rq.ReadConsistency,
 	}
-	qr, err := rq.Client.Query(ctx, statements, opts)
+	qr, err := rq.Client.Query(ctx, stmts, opts)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
@@ -99,10 +100,10 @@ func tryGetInt64(v any) (int64, error) {
 	return int64(floatValue), nil
 }
 
-func (rq *Rqlite) Mutate(ctx context.Context, mutations ...Mutation) (output []MutationOutput, err error) {
-	statements := make(rqlitehttp.SQLStatements, len(mutations))
+func (rq *Rqlite) Mutate(ctx context.Context, mutations ...statements.Mutation) (output []statements.MutationOutput, err error) {
+	stmts := make(rqlitehttp.SQLStatements, len(mutations))
 	for i, mutation := range mutations {
-		statements[i] = rqlitehttp.SQLStatement{
+		stmts[i] = rqlitehttp.SQLStatement{
 			SQL:         mutation.SQL,
 			NamedParams: convertToRqlite(mutation.Args),
 		}
@@ -112,11 +113,11 @@ func (rq *Rqlite) Mutate(ctx context.Context, mutations ...Mutation) (output []M
 		Wait:        true,
 		Timeout:     rq.Timeout,
 	}
-	qr, err := rq.Client.Execute(ctx, statements, opts)
+	qr, err := rq.Client.Execute(ctx, stmts, opts)
 	if err != nil {
 		return nil, fmt.Errorf("mutate: %w", err)
 	}
-	output = make([]MutationOutput, len(qr.Results))
+	output = make([]statements.MutationOutput, len(qr.Results))
 	for i, result := range qr.Results {
 		if result.Error != "" {
 			return nil, fmt.Errorf("mutate: index %d: %s", i, result.Error)

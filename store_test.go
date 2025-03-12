@@ -102,7 +102,6 @@ func runStoreTests(t *testing.T, store Store) {
 	t.Run("GetRange", newGetRangeTest(ctx, store))
 	t.Run("List", newListTest(ctx, store))
 	t.Run("Put", newPutTest(ctx, store))
-	t.Run("PutAll", newPutAllTest(ctx, store))
 	t.Run("Delete", newDeleteTest(ctx, store))
 	t.Run("DeletePrefix", newDeletePrefixTest(ctx, store))
 	t.Run("DeleteRange", newDeleteRangeTest(ctx, store))
@@ -110,7 +109,9 @@ func runStoreTests(t *testing.T, store Store) {
 	t.Run("CountPrefix", newCountPrefixTest(ctx, store))
 	t.Run("CountRange", newCountRangeTest(ctx, store))
 	t.Run("Patch", newPatchTest(ctx, store))
-	t.Run("Select", newSelectTest(ctx, store))
+	t.Run("Query", newQueryTest(ctx, store))
+	t.Run("Mutate", newMutateTest(ctx, store))
+	t.Run("MutateAll", newMutateAllTest(ctx, store))
 
 	deleted, err := store.DeletePrefix(ctx, "*", 0, -1)
 	if err != nil {

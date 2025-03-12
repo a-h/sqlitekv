@@ -5,9 +5,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/a-h/sqlitekv/statements"
 )
 
-func newSelectTest(ctx context.Context, store Store) func(t *testing.T) {
+func newQueryTest(ctx context.Context, store Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		defer store.DeletePrefix(ctx, "*", 0, -1)
 
@@ -32,15 +34,15 @@ func newSelectTest(ctx context.Context, store Store) func(t *testing.T) {
 		}
 
 		for i, person := range inputs {
-			testTime = insertTimes[i]
-			if err := store.Put(ctx, "select/"+strings.ToLower(person.Name), -1, person); err != nil {
+			statements.TestTime = insertTimes[i]
+			if err := store.Put(ctx, "query/"+strings.ToLower(person.Name), -1, person); err != nil {
 				t.Errorf("unexpected error putting data: %v", err)
 			}
 		}
-		testTime = time.Time{}
+		statements.TestTime = time.Time{}
 
 		t.Run("Can query on values within JSON", func(t *testing.T) {
-			actual, err := store.Select(ctx, "select key, version, json(value) as value, created from kv where value ->> '$.name' = :name", map[string]any{":name": "Alice"})
+			actual, err := store.Query(ctx, "select key, version, json(value) as value, created from kv where value ->> '$.name' = :name", map[string]any{":name": "Alice"})
 			if err != nil {
 				t.Fatalf("unexpected error getting data: %v", err)
 			}
@@ -56,7 +58,7 @@ func newSelectTest(ctx context.Context, store Store) func(t *testing.T) {
 			}
 		})
 		t.Run("Can query on created time", func(t *testing.T) {
-			actual, err := store.Select(ctx, "select key, version, json(value) as value, created from kv where created >= :created", map[string]any{":created": insertTimes[2].Format(time.RFC3339Nano)})
+			actual, err := store.Query(ctx, "select key, version, json(value) as value, created from kv where created >= :created", map[string]any{":created": insertTimes[2].Format(time.RFC3339Nano)})
 			if err != nil {
 				t.Fatalf("unexpected error getting data: %v", err)
 			}

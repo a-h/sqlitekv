@@ -191,6 +191,14 @@ CountPrefix(ctx context.Context, prefix string) (count int64, err error)
 CountRange(ctx context.Context, from, to string) (count int64, err error)
 // Patch patches a key in the store. The patch is a JSON merge patch (RFC 7396), so would look something like map[string]any{"key": "value"}.
 Patch(ctx context.Context, key string, version int64, patch any) (err error)
+// Query runs a select query against the store, and returns the results.
+Query(ctx context.Context, query string, args map[string]any) (output []Record, err error)
+// Mutate runs a mutation against the store, and returns the number of rows affected.
+Mutate(ctx context.Context, query string, args map[string]any) (rowsAffected int64, err error)
+// MutateAll runs the mutations against the store. Put/patch operations are executed in a transaction, deletions are executed separately.
+//
+// Use the Put, Patch, Delete, DeleteKeys, DeletePrefix and DeleteRange functions to populate the operations argument.
+MutateAll(ctx context.Context, operations ...MutateAllInput) (rowsAffected int64, err error)
 ```
 
 ## Tasks
