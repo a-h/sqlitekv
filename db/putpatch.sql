@@ -6,36 +6,32 @@ with input_data as (
     json_extract(value, '$.operation') as operation
   from json_each(:input_data)
 ),
-valid_ops as (
+updated_data as (
   select
-      input_data.key,
-      input_data.version,
-      input_data.value,
-      input_data.operation,
-      kv.version as existing_version
+      input_data.key as key,
+      coalesce(existing_data.version, 0) + 1 as version,
+      case
+        when input_data.operation = 'patch' then jsonb_patch(coalesce(existing_data.value, '{}'), input_data.value)
+        else jsonb(input_data.value)
+      end as value,
+      coalesce(existing_data.created, :now) as created
   from 
     input_data
-  left join kv on 
-    kv.key = input_data.key
+  left join kv as existing_data on
+    input_data.key = existing_data.key
   where
-    (input_data.version = -1 or kv.version = input_data.version) and (input_data.version <> 0)
+    (input_data.version = -1 or existing_data.version = input_data.version) or (input_data.version == 0 and existing_data.version is null)
 )
 insert into kv (key, version, value, created)
 select
-  valid_ops.key,
-  1,
-  jsonb(valid_ops.value),
-  :now
-from valid_ops
-where 
-  (select count(*) from input_data) = (select count(*) from valid_ops)
+  key,
+  version,
+  value,
+  created
+from updated_data
+where
+  (select count(*) from input_data) = (select count(*) from updated_data)
 on conflict(key) do update
 set
-  version = kv.version + 1,
-  value = case
-    when (select count(*) from valid_ops vo where vo.key = kv.key and vo.operation = 'patch') = 1
-      then jsonb_patch(value, excluded.value)
-      else jsonb(excluded.value)
-    end
-where 
-  (select count(*) from input_data) = (select count(*) from valid_ops)
+  version = excluded.version,
+  value = excluded.value
