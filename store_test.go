@@ -4,10 +4,12 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/a-h/sqlitekv/db"
 )
 
 func TestRecordsOf(t *testing.T) {
-	records := []Record{
+	records := []db.Record{
 		{
 			Key:     "key1",
 			Version: 1,
@@ -112,6 +114,7 @@ func runStoreTests(t *testing.T, store Store) {
 	t.Run("Query", newQueryTest(ctx, store))
 	t.Run("Mutate", newMutateTest(ctx, store))
 	t.Run("MutateAll", newMutateAllTest(ctx, store))
+	t.Run("PutPatches", newPutPatchesTest(ctx, store))
 
 	deleted, err := store.DeletePrefix(ctx, "*", 0, -1)
 	if err != nil {
@@ -119,5 +122,16 @@ func runStoreTests(t *testing.T, store Store) {
 	}
 	if deleted > 0 {
 		t.Fatalf("expected all data to be deleted after tests, got %d items", deleted)
+	}
+}
+
+func expectRowsAffectedEqual(t *testing.T, expected, actual []int64) {
+	if len(expected) != len(actual) {
+		t.Errorf("expected %d rows affected records, got %d", len(expected), len(actual))
+	}
+	for i, e := range expected {
+		if e != actual[i] {
+			t.Errorf("index: %d: expected %d rows affected, got %d", i, e, actual[i])
+		}
 	}
 }

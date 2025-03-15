@@ -2,12 +2,11 @@ package sqlitekv
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"time"
 
-	"github.com/a-h/sqlitekv/statements"
+	"github.com/a-h/sqlitekv/db"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -22,16 +21,16 @@ type Sqlite struct {
 	pool *sqlitex.Pool
 }
 
-func (s *Sqlite) isDB() DB { return s }
+func (s *Sqlite) isDB() db.DB { return s }
 
-func (s *Sqlite) Query(ctx context.Context, queries ...statements.Query) (outputs [][]Record, err error) {
+func (s *Sqlite) Query(ctx context.Context, queries ...db.Query) (outputs [][]db.Record, err error) {
 	conn, err := s.pool.Take(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer s.pool.Put(conn)
 
-	outputs = make([][]Record, len(queries))
+	outputs = make([][]db.Record, len(queries))
 	for i, q := range queries {
 		opts := &sqlitex.ExecOptions{
 			Named: q.Args,
@@ -44,7 +43,7 @@ func (s *Sqlite) Query(ctx context.Context, queries ...statements.Query) (output
 				if err != nil {
 					return fmt.Errorf("query: error parsing created time: %w", err)
 				}
-				r := Record{
+				r := db.Record{
 					Key:     stmt.GetText("key"),
 					Version: stmt.GetInt64("version"),
 					Value:   valueBytes,
@@ -62,14 +61,14 @@ func (s *Sqlite) Query(ctx context.Context, queries ...statements.Query) (output
 	return outputs, nil
 }
 
-func (s *Sqlite) Mutate(ctx context.Context, mutations ...statements.Mutation) (outputs []statements.MutationOutput, err error) {
+func (s *Sqlite) Mutate(ctx context.Context, mutations ...db.Mutation) (rowsAffected []int64, err error) {
 	conn, err := s.pool.Take(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer s.pool.Put(conn)
 
-	outputs = make([]statements.MutationOutput, len(mutations))
+	rowsAffected = make([]int64, len(mutations))
 	errs := make([]error, len(mutations))
 	for i, m := range mutations {
 		opts := &sqlitex.ExecOptions{
@@ -79,10 +78,13 @@ func (s *Sqlite) Mutate(ctx context.Context, mutations ...statements.Mutation) (
 			errs[i] = fmt.Errorf("mutate: error in mutation index %d: %w", i, err)
 			continue
 		}
-		outputs[i].RowsAffected = int64(conn.Changes())
+		rowsAffected[i] = int64(conn.Changes())
+		if mutations[i].MustAffectRows && rowsAffected[i] == 0 {
+			errs[i] = db.ErrVersionMismatch
+		}
 	}
 
-	return outputs, errors.Join(errs...)
+	return rowsAffected, newBatchError(errs)
 }
 
 func (s *Sqlite) QueryScalarInt64(ctx context.Context, sql string, params map[string]any) (v int64, err error) {

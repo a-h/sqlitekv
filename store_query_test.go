@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/a-h/sqlitekv/statements"
+	"github.com/a-h/sqlitekv/db"
 )
 
 func newQueryTest(ctx context.Context, store Store) func(t *testing.T) {
@@ -34,12 +34,12 @@ func newQueryTest(ctx context.Context, store Store) func(t *testing.T) {
 		}
 
 		for i, person := range inputs {
-			statements.TestTime = insertTimes[i]
+			db.TestTime = insertTimes[i]
 			if err := store.Put(ctx, "query/"+strings.ToLower(person.Name), -1, person); err != nil {
 				t.Errorf("unexpected error putting data: %v", err)
 			}
 		}
-		statements.TestTime = time.Time{}
+		db.TestTime = time.Time{}
 
 		t.Run("Can query on values within JSON", func(t *testing.T) {
 			actual, err := store.Query(ctx, "select key, version, json(value) as value, created from kv where value ->> '$.name' = :name", map[string]any{":name": "Alice"})

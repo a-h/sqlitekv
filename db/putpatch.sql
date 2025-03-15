@@ -33,7 +33,7 @@ on conflict(key) do update
 set
   version = kv.version + 1,
   value = case
-    when (select count(*) from valid_ops vo where vo.key = kv.key and vo.operation = 'patch') = 0
+    when (select count(*) from valid_ops vo where vo.key = kv.key and vo.operation = 'patch') = 1
       then jsonb_patch(value, excluded.value)
       else jsonb(excluded.value)
     end

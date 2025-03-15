@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/a-h/sqlitekv"
+	"github.com/a-h/sqlitekv/db"
 	"github.com/alecthomas/kong"
 	rqlitehttp "github.com/rqlite/rqlite-go-http"
 	"zombiezen.com/go/sqlite/sqlitex"
@@ -25,7 +26,7 @@ func (g GlobalFlags) Store() (sqlitekv.Store, error) {
 	return sqlitekv.NewStore(db), nil
 }
 
-func (g GlobalFlags) DB() (sqlitekv.DB, error) {
+func (g GlobalFlags) DB() (db.DB, error) {
 	switch g.Type {
 	case "sqlite":
 		pool, err := sqlitex.NewPool(g.Connection, sqlitex.PoolOptions{})

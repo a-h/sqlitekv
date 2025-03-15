@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/a-h/sqlitekv/statements"
+	"github.com/a-h/sqlitekv/db"
 )
 
 func newMutateTest(ctx context.Context, store Store) func(t *testing.T) {
@@ -43,12 +43,12 @@ func newMutateTest(ctx context.Context, store Store) func(t *testing.T) {
 		}
 
 		for i, person := range inputs {
-			statements.TestTime = insertTimes[i]
+			db.TestTime = insertTimes[i]
 			if err := store.Put(ctx, "mutate/"+strings.ToLower(person.Name), -1, person); err != nil {
 				t.Errorf("unexpected error putting data: %v", err)
 			}
 		}
-		statements.TestTime = time.Time{}
+		db.TestTime = time.Time{}
 
 		t.Run("Can delete multiple values", func(t *testing.T) {
 			keysToDelete := []string{"mutate/delete1", "mutate/delete2"}

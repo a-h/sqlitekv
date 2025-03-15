@@ -31,37 +31,50 @@ kv delete hello
 Usage: kv <command> [flags]
 
 Flags:
-  -h, --help                                  Show context-sensitive help.
-      --type="sqlite"                         The type of KV store to use.
-      --connection="file:data.db?mode=rwc"    The connection string to use.
+  -h, --help             Show context-sensitive help.
+      --type="sqlite"    The type of KV store to use.
+      --connection="file:data.db?mode=rwc"
+                         The connection string to use.
 
 Commands:
   init [flags]
-    Initialize the KV store.
+    Initialize the store.
 
   get <key> [flags]
-    Get a key from the KV store.
+    Get a key.
 
-  get-prefix <prefix> [flags]
-    Get all keys with a given prefix from the KV store.
+  get-prefix <prefix> [<offset> [<limit>]] [flags]
+    Get all keys with a given prefix.
 
-  list [flags]
-    List all keys in the KV store.
+  get-range <from> <to> [<offset> [<limit>]] [flags]
+    Get a range of keys.
+
+  list [<offset> [<limit>]] [flags]
+    List all keys.
 
   put <key> [flags]
-    Put a key into the KV store.
+    Put a key.
 
   delete <key> [flags]
-    Delete a key from the KV store.
+    Delete a key.
 
-  delete-prefix <prefix> [flags]
-    Delete all keys with a given prefix from the KV store.
+  delete-prefix <prefix> [<offset> [<limit>]] [flags]
+    Delete all keys with a given prefix.
+
+  delete-range <from> <to> [<offset> [<limit>]] [flags]
+    Delete a range of keys.
 
   count [flags]
-    Count the number of keys in the KV store
+    Count the number of keys.
+
+  count-prefix <prefix> [flags]
+    Count the number of keys with a given prefix.
+
+  count-range <from> <to> [flags]
+    Count the number of keys in a range.
 
   patch <key> [flags]
-    Patch a key in the KV store.
+    Patch a key.
 
 Run "kv <command> --help" for more information on a command.
 ```
@@ -195,10 +208,10 @@ Patch(ctx context.Context, key string, version int64, patch any) (err error)
 Query(ctx context.Context, query string, args map[string]any) (output []Record, err error)
 // Mutate runs a mutation against the store, and returns the number of rows affected.
 Mutate(ctx context.Context, query string, args map[string]any) (rowsAffected int64, err error)
-// MutateAll runs the mutations against the store. Put/patch operations are executed in a transaction, deletions are executed separately.
+// MutateAll runs the mutations against the store, in the order they are provided.
 //
-// Use the Put, Patch, Delete, DeleteKeys, DeletePrefix and DeleteRange functions to populate the operations argument.
-MutateAll(ctx context.Context, operations ...MutateAllInput) (rowsAffected int64, err error)
+// Use the Put, Patch, PutPatches, Delete, DeleteKeys, DeletePrefix and DeleteRange functions to populate the operations argument.
+MutateAll(ctx context.Context, mutations ...db.Mutation) (rowsAffected []int64, err error)
 ```
 
 ## Tasks

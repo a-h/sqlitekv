@@ -43,6 +43,10 @@ func newPatchTest(ctx context.Context, store Store) func(t *testing.T) {
 			if updated.Name != patch["name"].(string) {
 				t.Errorf("expected name %q, got %q", patch["name"].(string), updated.Name)
 			}
+			data.Name = "Jessie"
+			if !data.Equals(updated) {
+				t.Errorf("expected data %#v, got %#v", data, updated)
+			}
 		})
 		t.Run("Patching a non-existent record creates it", func(t *testing.T) {
 			defer store.DeletePrefix(ctx, "*", 0, -1)

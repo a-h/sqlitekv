@@ -2,11 +2,12 @@ package sqlitekv
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/a-h/sqlitekv/statements"
+	"github.com/a-h/sqlitekv/db"
 	rqlitehttp "github.com/rqlite/rqlite-go-http"
 )
 
@@ -24,9 +25,9 @@ type Rqlite struct {
 	ReadConsistency rqlitehttp.ReadConsistencyLevel
 }
 
-func (r *Rqlite) isDB() DB { return r }
+func (r *Rqlite) isDB() db.DB { return r }
 
-func (rq *Rqlite) Query(ctx context.Context, queries ...statements.Query) (outputs [][]Record, err error) {
+func (rq *Rqlite) Query(ctx context.Context, queries ...db.Query) (outputs [][]db.Record, err error) {
 	stmts := make(rqlitehttp.SQLStatements, len(queries))
 	for i, query := range queries {
 		stmts[i] = rqlitehttp.SQLStatement{
@@ -42,7 +43,7 @@ func (rq *Rqlite) Query(ctx context.Context, queries ...statements.Query) (outpu
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
-	outputs = make([][]Record, len(qr.Results))
+	outputs = make([][]db.Record, len(qr.Results))
 	for i, result := range qr.Results {
 		if result.Error != "" {
 			return nil, fmt.Errorf("query: index %d: %s", i, result.Error)
@@ -50,7 +51,7 @@ func (rq *Rqlite) Query(ctx context.Context, queries ...statements.Query) (outpu
 		if err := checkResultColumns(result); err != nil {
 			return nil, fmt.Errorf("query: %w", err)
 		}
-		outputs[i] = make([]Record, len(result.Values))
+		outputs[i] = make([]db.Record, len(result.Values))
 		for j, values := range result.Values {
 			r, err := newRowFromValues(values)
 			if err != nil {
@@ -72,7 +73,7 @@ func checkResultColumns(result rqlitehttp.QueryResult) (err error) {
 	return nil
 }
 
-func newRowFromValues(values []any) (r Record, err error) {
+func newRowFromValues(values []any) (r db.Record, err error) {
 	if len(values) != 4 {
 		return r, fmt.Errorf("row: expected 4 columns, got %d", len(values))
 	}
@@ -84,7 +85,9 @@ func newRowFromValues(values []any) (r Record, err error) {
 	if r.Version, err = tryGetInt64(values[1]); err != nil {
 		return r, fmt.Errorf("row: version: %w", err)
 	}
-	r.Value = []byte(values[2].(string))
+	if values[2] != nil {
+		r.Value = []byte(values[2].(string))
+	}
 	r.Created, err = time.Parse(time.RFC3339Nano, values[3].(string))
 	if err != nil {
 		return r, fmt.Errorf("row: failed to parse created time: %w", err)
@@ -100,7 +103,7 @@ func tryGetInt64(v any) (int64, error) {
 	return int64(floatValue), nil
 }
 
-func (rq *Rqlite) Mutate(ctx context.Context, mutations ...statements.Mutation) (output []statements.MutationOutput, err error) {
+func (rq *Rqlite) Mutate(ctx context.Context, mutations ...db.Mutation) (rowsAffected []int64, err error) {
 	stmts := make(rqlitehttp.SQLStatements, len(mutations))
 	for i, mutation := range mutations {
 		stmts[i] = rqlitehttp.SQLStatement{
@@ -117,14 +120,19 @@ func (rq *Rqlite) Mutate(ctx context.Context, mutations ...statements.Mutation) 
 	if err != nil {
 		return nil, fmt.Errorf("mutate: %w", err)
 	}
-	output = make([]statements.MutationOutput, len(qr.Results))
+	rowsAffected = make([]int64, len(qr.Results))
+	errs := make([]error, len(qr.Results))
 	for i, result := range qr.Results {
 		if result.Error != "" {
-			return nil, fmt.Errorf("mutate: index %d: %s", i, result.Error)
+			errs[i] = errors.New(result.Error)
+			continue
 		}
-		output[i].RowsAffected = result.RowsAffected
+		rowsAffected[i] = result.RowsAffected
+		if mutations[i].MustAffectRows && result.RowsAffected == 0 {
+			errs[i] = db.ErrVersionMismatch
+		}
 	}
-	return output, nil
+	return rowsAffected, newBatchError(errs)
 }
 
 func (rq *Rqlite) QueryScalarInt64(ctx context.Context, sql string, params map[string]any) (int64, error) {

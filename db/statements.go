@@ -1,8 +1,9 @@
-package statements
+package db
 
 import (
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -13,20 +14,6 @@ func now() string {
 		return TestTime.UTC().Format(time.RFC3339Nano)
 	}
 	return time.Now().UTC().Format(time.RFC3339Nano)
-}
-
-type Query struct {
-	SQL  string
-	Args map[string]any
-}
-
-type Mutation struct {
-	SQL  string
-	Args map[string]any
-}
-
-type MutationOutput struct {
-	RowsAffected int64
 }
 
 func Init() []Mutation {
@@ -85,12 +72,14 @@ func List(offset, limit int) Query {
 	}
 }
 
-func Put(key string, version int64, value any) (m Mutation, err error) {
+func Put(key string, version int64, value any) (m Mutation) {
 	jsonValue, err := json.Marshal(value)
 	if err != nil {
-		return Mutation{}, err
+		return Mutation{
+			ArgsError: err,
+		}
 	}
-	m = Mutation{
+	return Mutation{
 		SQL: `insert into kv (key, version, value, created)
 values (:key, 1, jsonb(:value), :now)
 on conflict(key) do update 
@@ -103,56 +92,80 @@ where (:version = -1 or version = :version) and (:version <> 0);`,
 			":value":   string(jsonValue),
 			":now":     now(),
 		},
+		MustAffectRows: true,
 	}
-	return m, nil
 }
 
 type PutPatchInput struct {
-	Key       string `json:"key"`
-	Version   int64  `json:"version"`
-	Value     any    `json:"value"`
-	Operation string `json:"operation"`
+	Key       string    `json:"key"`
+	Version   int64     `json:"version"`
+	Value     any       `json:"value"`
+	Operation Operation `json:"operation"`
+}
+
+type Operation string
+
+var OperationPut Operation = "put"
+var OperationPatch Operation = "patch"
+
+func PutInput(key string, version int64, value any) PutPatchInput {
+	return PutPatchInput{
+		Key:       key,
+		Version:   version,
+		Value:     value,
+		Operation: OperationPut,
+	}
+}
+
+func PatchInput(key string, version int64, patch any) PutPatchInput {
+	return PutPatchInput{
+		Key:       key,
+		Version:   version,
+		Value:     patch,
+		Operation: OperationPatch,
+	}
 }
 
 //go:embed putpatch.sql
 var putPatchSQL string
 
-func PutPatches(operations ...PutPatchInput) (m Mutation, err error) {
-	putsAndPatches := []PutPatchInput{}
+func PutPatches(operations ...PutPatchInput) (m Mutation) {
 	for _, op := range operations {
-		switch op.Operation {
-		case "put":
-			putsAndPatches = append(putsAndPatches, op)
-		case "patch":
-			putsAndPatches = append(putsAndPatches, op)
+		if !(op.Operation == OperationPut || op.Operation == OperationPatch) {
+			return Mutation{
+				ArgsError: fmt.Errorf("putpatchinput: invalid operation type: %v", op.Operation),
+			}
 		}
 	}
-	putsAndPatchesJSON, err := json.Marshal(putsAndPatches)
+	putsAndPatchesJSON, err := json.Marshal(operations)
 	if err != nil {
-		return Mutation{}, err
+		return Mutation{
+			ArgsError: err,
+		}
 	}
-	m = Mutation{
+	return Mutation{
 		SQL: putPatchSQL,
 		Args: map[string]any{
 			":input_data": string(putsAndPatchesJSON),
 			":now":        now(),
 		},
+		MustAffectRows: true,
 	}
-	return m, nil
 }
 
-func DeleteKeys(keys ...string) (m Mutation, err error) {
+func DeleteKeys(keys ...string) (m Mutation) {
 	keysJSON, err := json.Marshal(keys)
 	if err != nil {
-		return Mutation{}, err
+		return Mutation{
+			ArgsError: err,
+		}
 	}
-	m = Mutation{
+	return Mutation{
 		SQL: `delete from kv where key in (select value from json_each(:keys))`,
 		Args: map[string]any{
 			":keys": string(keysJSON),
 		},
 	}
-	return m, nil
 }
 
 func Delete(key string) Mutation {
@@ -219,12 +232,14 @@ func CountRange(from, to string) Query {
 	}
 }
 
-func Patch(key string, version int64, patch any) (m Mutation, err error) {
+func Patch(key string, version int64, patch any) (m Mutation) {
 	jsonPatch, err := json.Marshal(patch)
 	if err != nil {
-		return Mutation{}, err
+		return Mutation{
+			ArgsError: err,
+		}
 	}
-	m = Mutation{
+	return Mutation{
 		SQL: `insert into kv (key, version, value, created)
 values (:key, 1, jsonb(:value), :now)
 on conflict(key) do update 
@@ -238,5 +253,4 @@ where (:version = -1 or version = :version);`,
 			":now":     now(),
 		},
 	}
-	return m, nil
 }
