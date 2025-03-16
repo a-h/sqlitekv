@@ -8,6 +8,8 @@ It can be used as a CLI tool, or as a Go library.
 
 The CLI tool can be used to interact with a sqlite or rqlite database.
 
+To connect to an rqlite database, use `--type 'rqlite' --connection 'http://localhost:4001?user=admin&password=secret'`.
+
 ```bash
 # Create a new data.db file (use the --connection flag to specify a different file).
 kv init
