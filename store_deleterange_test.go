@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func newDeleteRangeTest(ctx context.Context, store Store) func(t *testing.T) {
+func newDeleteRangeTest(ctx context.Context, store *Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Run("Can delete within a range", func(t *testing.T) {
 			defer store.DeletePrefix(ctx, "*", 0, -1)

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func newDeletePrefixTest(ctx context.Context, store Store) func(t *testing.T) {
+func newDeletePrefixTest(ctx context.Context, store *Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Run("Can delete data with matching prefix", func(t *testing.T) {
 			defer store.DeletePrefix(ctx, "deleteprefix", 0, -1)

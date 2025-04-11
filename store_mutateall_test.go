@@ -12,7 +12,7 @@ type mutateAllTestData struct {
 	Value string `json:"value"`
 }
 
-func newMutateAllTest(ctx context.Context, store Store) func(t *testing.T) {
+func newMutateAllTest(ctx context.Context, store *Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		tests := []struct {
 			name                  string
@@ -131,7 +131,7 @@ func newMutateAllTest(ctx context.Context, store Store) func(t *testing.T) {
 	}
 }
 
-func newPutPatchesTest(ctx context.Context, store Store) func(t *testing.T) {
+func newPutPatchesTest(ctx context.Context, store *Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Run("Can put and patch data", func(t *testing.T) {
 			defer store.DeletePrefix(ctx, "*", 0, -1)

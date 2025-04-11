@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func newCountRangeTest(ctx context.Context, store Store) func(t *testing.T) {
+func newCountRangeTest(ctx context.Context, store *Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Run("Can count range", func(t *testing.T) {
 			defer store.DeletePrefix(ctx, "*", 0, -1)

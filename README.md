@@ -172,14 +172,14 @@ The `Store` has the following methods:
 // Init initializes the store. It should be called before any other method, and creates the necessary table.
 Init(ctx context.Context) error
 // Get gets a key from the store, and populates v with the value. If the key does not exist, it returns ok=false.
-Get(ctx context.Context, key string, v any) (r Record[T], ok bool, err error)
+Get(ctx context.Context, key string, v any) (r db.Record, ok bool, err error)
 // GetPrefix gets all keys with a given prefix from the store.
-GetPrefix(ctx context.Context, prefix string, offset, limit int) (records Records[T], err error)
+GetPrefix(ctx context.Context, prefix string, offset, limit int) (records []db.Record, err error)
 // GetRange gets all keys between the key from (inclusive) and to (exclusive).
 // e.g. select key from kv where key >= 'a' and key < 'c';
-GetRange(ctx context.Context, from, to string, offset, limit int) (records Records[T], err error)
+GetRange(ctx context.Context, from, to string, offset, limit int) (records []db.Record, err error)
 // List gets all keys from the store, starting from the given offset and limiting the number of results to the given limit.
-List(ctx context.Context, offset, limit int) (records Records[T], err error)
+List(ctx context.Context, offset, limit int) (records []db.Record, err error)
 // Put a key into the store. If the key already exists, it will update the value if the version matches, and increment the version.
 //
 // If the key does not exist, it will insert the key with version 1.
@@ -189,9 +189,7 @@ List(ctx context.Context, offset, limit int) (records Records[T], err error)
 // If the version is -1, it will skip the version check.
 //
 // If the version is 0, it will only insert the key if it does not already exist.
-Put(ctx context.Context, key string, version int64, value T) (err error)
-// PutAll puts multiple keys into the store, in a single transaction.
-PutAll(ctx context.Context, records Records[T]) (err error)
+Put(ctx context.Context, key string, version int64, value any) (err error)
 // Delete deletes a key from the store. If the key does not exist, no error is returned.
 Delete(ctx context.Context, key string) (rowsAffected int64, err error)
 // DeletePrefix deletes all keys with a given prefix from the store.
@@ -207,7 +205,7 @@ CountRange(ctx context.Context, from, to string) (count int64, err error)
 // Patch patches a key in the store. The patch is a JSON merge patch (RFC 7396), so would look something like map[string]any{"key": "value"}.
 Patch(ctx context.Context, key string, version int64, patch any) (err error)
 // Query runs a select query against the store, and returns the results.
-Query(ctx context.Context, query string, args map[string]any) (output []Record, err error)
+Query(ctx context.Context, query string, args map[string]any) (output []db.Record, err error)
 // Mutate runs a mutation against the store, and returns the number of rows affected.
 Mutate(ctx context.Context, query string, args map[string]any) (rowsAffected int64, err error)
 // MutateAll runs the mutations against the store, in the order they are provided.

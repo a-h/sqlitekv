@@ -75,8 +75,8 @@ func (be *BatchError) Error() string {
 	return sb.String()
 }
 
-func NewStore(db db.DB) Store {
-	return Store{
+func NewStore(db db.DB) *Store {
+	return &Store{
 		db: db,
 	}
 }

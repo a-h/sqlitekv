@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func newGetPrefixTest(ctx context.Context, store Store) func(t *testing.T) {
+func newGetPrefixTest(ctx context.Context, store *Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		defer store.DeletePrefix(ctx, "*", 0, -1)
 

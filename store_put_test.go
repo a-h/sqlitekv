@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func newPutTest(ctx context.Context, store Store) func(t *testing.T) {
+func newPutTest(ctx context.Context, store *Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Run("Can put data", func(t *testing.T) {
 			defer store.DeletePrefix(ctx, "*", 0, -1)

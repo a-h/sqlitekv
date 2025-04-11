@@ -18,10 +18,10 @@ type GlobalFlags struct {
 	Connection string `help:"The connection string to use." default:"file:data.db?mode=rwc"`
 }
 
-func (g GlobalFlags) Store() (sqlitekv.Store, error) {
+func (g GlobalFlags) Store() (*sqlitekv.Store, error) {
 	db, err := g.DB()
 	if err != nil {
-		return sqlitekv.Store{}, err
+		return nil, err
 	}
 	return sqlitekv.NewStore(db), nil
 }

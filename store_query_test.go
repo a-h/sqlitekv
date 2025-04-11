@@ -9,7 +9,7 @@ import (
 	"github.com/a-h/sqlitekv/db"
 )
 
-func newQueryTest(ctx context.Context, store Store) func(t *testing.T) {
+func newQueryTest(ctx context.Context, store *Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		defer store.DeletePrefix(ctx, "*", 0, -1)
 

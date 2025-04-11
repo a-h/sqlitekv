@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func newGetRangeTest(ctx context.Context, store Store) func(t *testing.T) {
+func newGetRangeTest(ctx context.Context, store *Store) func(t *testing.T) {
 	return func(t *testing.T) {
 		defer store.DeletePrefix(ctx, "*", 0, -1)
 
