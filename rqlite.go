@@ -30,7 +30,7 @@ func (r *Rqlite) isDB() db.DB { return r }
 func (rq *Rqlite) Query(ctx context.Context, queries ...db.Query) (outputs [][]db.Record, err error) {
 	stmts := make(rqlitehttp.SQLStatements, len(queries))
 	for i, query := range queries {
-		stmts[i] = rqlitehttp.SQLStatement{
+		stmts[i] = &rqlitehttp.SQLStatement{
 			SQL:         query.SQL,
 			NamedParams: convertToRqlite(query.Args),
 		}
@@ -43,8 +43,8 @@ func (rq *Rqlite) Query(ctx context.Context, queries ...db.Query) (outputs [][]d
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
-	outputs = make([][]db.Record, len(qr.Results))
-	for i, result := range qr.Results {
+	outputs = make([][]db.Record, len(qr.GetQueryResults()))
+	for i, result := range qr.GetQueryResults() {
 		if result.Error != "" {
 			return nil, fmt.Errorf("query: index %d: %s", i, result.Error)
 		}
@@ -106,7 +106,7 @@ func tryGetInt64(v any) (int64, error) {
 func (rq *Rqlite) Mutate(ctx context.Context, mutations ...db.Mutation) (rowsAffected []int64, err error) {
 	stmts := make(rqlitehttp.SQLStatements, len(mutations))
 	for i, mutation := range mutations {
-		stmts[i] = rqlitehttp.SQLStatement{
+		stmts[i] = &rqlitehttp.SQLStatement{
 			SQL:         mutation.SQL,
 			NamedParams: convertToRqlite(mutation.Args),
 		}
@@ -140,7 +140,7 @@ func (rq *Rqlite) QueryScalarInt64(ctx context.Context, sql string, params map[s
 		Timeout: rq.Timeout,
 		Level:   rq.ReadConsistency,
 	}
-	q := rqlitehttp.SQLStatement{
+	q := &rqlitehttp.SQLStatement{
 		SQL:         sql,
 		NamedParams: convertToRqlite(params),
 	}
@@ -148,21 +148,21 @@ func (rq *Rqlite) QueryScalarInt64(ctx context.Context, sql string, params map[s
 	if err != nil {
 		return 0, err
 	}
-	if len(qr.Results) != 1 {
-		return 0, fmt.Errorf("expected 1 result, got %d", len(qr.Results))
+	if len(qr.GetQueryResults()) != 1 {
+		return 0, fmt.Errorf("expected 1 result, got %d", len(qr.GetQueryResults()))
 	}
-	if qr.Results[0].Error != "" {
-		return 0, fmt.Errorf("%s", qr.Results[0].Error)
+	if qr.GetQueryResults()[0].Error != "" {
+		return 0, fmt.Errorf("%s", qr.GetQueryResults()[0].Error)
 	}
-	if len(qr.Results[0].Values) != 1 {
-		return 0, fmt.Errorf("expected 1 row, got %d", len(qr.Results[0].Values))
+	if len(qr.GetQueryResults()[0].Values) != 1 {
+		return 0, fmt.Errorf("expected 1 row, got %d", len(qr.GetQueryResults()[0].Values))
 	}
-	if len(qr.Results[0].Values[0]) != 1 {
-		return 0, fmt.Errorf("expected 1 column, got %d", len(qr.Results[0].Values[0]))
+	if len(qr.GetQueryResults()[0].Values[0]) != 1 {
+		return 0, fmt.Errorf("expected 1 column, got %d", len(qr.GetQueryResults()[0].Values[0]))
 	}
-	vt, ok := qr.Results[0].Values[0][0].(float64)
+	vt, ok := qr.GetQueryResults()[0].Values[0][0].(float64)
 	if !ok {
-		return 0, fmt.Errorf("expected float64, got %T", qr.Results[0].Values[0][0])
+		return 0, fmt.Errorf("expected float64, got %T", qr.GetQueryResults()[0].Values[0][0])
 	}
 	return int64(vt), nil
 }

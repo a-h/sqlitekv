@@ -43,7 +43,10 @@ func (g GlobalFlags) DB() (db.DB, error) {
 		password := u.Query().Get("password")
 		// Remove user and password from the connection string.
 		u.RawQuery = ""
-		client := rqlitehttp.NewClient(u.String(), nil)
+		client, err := rqlitehttp.NewClient(u.String(), nil)
+		if err != nil {
+			return nil, err
+		}
 		if user != "" && password != "" {
 			client.SetBasicAuth(user, password)
 		}
