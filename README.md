@@ -300,5 +300,11 @@ crane push /tmp/sqlitekv.tar ${CONTAINER_REGISTRY}/sqlitekv:v0.0.1
 ### docker-run-rqlite
 
 ```bash
-docker run -v "$PWD/auth.json:/mnt/rqlite/auth.json" -v "$PWD/.rqlite:/mnt/data" -p 4001:4001 -p 4002:4002 -p 4003:4003 rqlite:latest
+docker run -v "$PWD/auth.json:/mnt/rqlite/auth.json" -v "$PWD/.rqlite:/mnt/data" -p 4001:4001 -p 4002:4002 -p 4003:4003 rqlite/rqlite:latest
+```
+
+### docker-run-postgres
+
+```bash
+docker run -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=secret -e POSTGRES_DB=testdb -p 5432:5432 postgres:latest
 ```

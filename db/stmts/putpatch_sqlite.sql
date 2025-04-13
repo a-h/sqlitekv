@@ -35,3 +35,4 @@ on conflict(key) do update
 set
   version = excluded.version,
   value = excluded.value
+

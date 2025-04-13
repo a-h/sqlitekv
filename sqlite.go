@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/a-h/sqlitekv/db"
+	"github.com/a-h/sqlitekv/db/stmts"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 )
@@ -108,4 +109,8 @@ func (s *Sqlite) QueryScalarInt64(ctx context.Context, sql string, params map[st
 		return 0, err
 	}
 	return v, nil
+}
+
+func (s *Sqlite) Statements() db.StatementSet {
+	return stmts.SQLite{}
 }

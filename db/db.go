@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+var TestTime time.Time
+
 // Record is the record stored in the store prior to being unmarshaled.
 type Record struct {
 	Key     string    `json:"key"`
@@ -20,6 +22,7 @@ type DB interface {
 	// Mutate runs mutations against the store.
 	Mutate(ctx context.Context, mutations ...Mutation) (rowsAffected []int64, err error)
 	QueryScalarInt64(ctx context.Context, query string, args map[string]any) (n int64, err error)
+	Statements() StatementSet
 }
 
 type Query struct {

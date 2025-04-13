@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/a-h/sqlitekv/db"
+	"github.com/a-h/sqlitekv/db/stmts"
 	rqlitehttp "github.com/rqlite/rqlite-go-http"
 )
 
@@ -176,4 +177,8 @@ func convertToRqlite(args map[string]any) (updated map[string]any) {
 		updated[strings.TrimPrefix(k, ":")] = v
 	}
 	return updated
+}
+
+func (rq *Rqlite) Statements() db.StatementSet {
+	return stmts.SQLite{}
 }

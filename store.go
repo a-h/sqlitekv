@@ -77,23 +77,25 @@ func (be *BatchError) Error() string {
 
 func NewStore(db db.DB) Store {
 	return Store{
-		db: db,
+		db:    db,
+		stmts: db.Statements(),
 	}
 }
 
 type Store struct {
-	db db.DB
+	db    db.DB
+	stmts db.StatementSet
 }
 
 // Init initializes the store. It should be called before any other method, and creates the necessary table.
 func (s *Store) Init(ctx context.Context) error {
-	_, err := s.db.Mutate(ctx, db.Init()...)
+	_, err := s.db.Mutate(ctx, s.stmts.Init()...)
 	return err
 }
 
 // Get gets a key from the store, and populates v with the value. If the key does not exist, it returns ok=false.
 func (s *Store) Get(ctx context.Context, key string, v any) (r db.Record, ok bool, err error) {
-	outputs, err := s.db.Query(ctx, db.Get(key))
+	outputs, err := s.db.Query(ctx, s.stmts.Get(key))
 	if err != nil {
 		return db.Record{}, false, fmt.Errorf("get: %w", err)
 	}
@@ -111,7 +113,7 @@ func (s *Store) Get(ctx context.Context, key string, v any) (r db.Record, ok boo
 
 // GetPrefix gets all keys with a given prefix from the store.
 func (s *Store) GetPrefix(ctx context.Context, prefix string, offset, limit int) (rows []db.Record, err error) {
-	outputs, err := s.db.Query(ctx, db.GetPrefix(prefix, offset, limit))
+	outputs, err := s.db.Query(ctx, s.stmts.GetPrefix(prefix, offset, limit))
 	if err != nil {
 		return nil, fmt.Errorf("getprefix: %w", err)
 	}
@@ -121,7 +123,7 @@ func (s *Store) GetPrefix(ctx context.Context, prefix string, offset, limit int)
 // GetRange gets all keys between the key from (inclusive) and to (exclusive).
 // e.g. select key from kv where key >= 'a' and key < 'c';
 func (s *Store) GetRange(ctx context.Context, from, to string, offset, limit int) (rows []db.Record, err error) {
-	outputs, err := s.db.Query(ctx, db.GetRange(from, to, offset, limit))
+	outputs, err := s.db.Query(ctx, s.stmts.GetRange(from, to, offset, limit))
 	if err != nil {
 		return nil, fmt.Errorf("getrange: %w", err)
 	}
@@ -130,7 +132,7 @@ func (s *Store) GetRange(ctx context.Context, from, to string, offset, limit int
 
 // List gets all keys from the store, starting from the given offset and limiting the number of results to the given limit.
 func (s *Store) List(ctx context.Context, start, limit int) (rows []db.Record, err error) {
-	outputs, err := s.db.Query(ctx, db.List(start, limit))
+	outputs, err := s.db.Query(ctx, s.stmts.List(start, limit))
 	if err != nil {
 		return nil, fmt.Errorf("list: %w", err)
 	}
@@ -147,7 +149,7 @@ func (s *Store) List(ctx context.Context, start, limit int) (rows []db.Record, e
 //
 // If the version is 0, it will only insert the key if it does not already exist.
 func (s *Store) Put(ctx context.Context, key string, version int64, value any) (err error) {
-	put := db.Put(key, version, value)
+	put := s.stmts.Put(key, version, value)
 	if put.ArgsError != nil {
 		return fmt.Errorf("put: %w", put.ArgsError)
 	}
@@ -159,7 +161,7 @@ func (s *Store) Put(ctx context.Context, key string, version int64, value any) (
 
 // Delete deletes a key from the store. If the key does not exist, no error is returned.
 func (s *Store) Delete(ctx context.Context, key string) (rowsAffected int64, err error) {
-	outputs, err := s.db.Mutate(ctx, db.Delete(key))
+	outputs, err := s.db.Mutate(ctx, s.stmts.Delete(key))
 	if err != nil {
 		return 0, fmt.Errorf("delete: %w", err)
 	}
@@ -174,7 +176,7 @@ func (s *Store) DeletePrefix(ctx context.Context, prefix string, offset, limit i
 	if prefix == "*" {
 		prefix = ""
 	}
-	outputs, err := s.db.Mutate(ctx, db.DeletePrefix(prefix, offset, limit))
+	outputs, err := s.db.Mutate(ctx, s.stmts.DeletePrefix(prefix, offset, limit))
 	if err != nil {
 		return 0, fmt.Errorf("deleteprefix: %w", err)
 	}
@@ -183,7 +185,7 @@ func (s *Store) DeletePrefix(ctx context.Context, prefix string, offset, limit i
 
 // DeleteRange deletes all keys between the key from (inclusive) and to (exclusive).
 func (s *Store) DeleteRange(ctx context.Context, from, to string, offset, limit int) (rowsAffected int64, err error) {
-	outputs, err := s.db.Mutate(ctx, db.DeleteRange(from, to, offset, limit))
+	outputs, err := s.db.Mutate(ctx, s.stmts.DeleteRange(from, to, offset, limit))
 	if err != nil {
 		return 0, fmt.Errorf("deleterange: %w", err)
 	}
@@ -192,7 +194,7 @@ func (s *Store) DeleteRange(ctx context.Context, from, to string, offset, limit 
 
 // Count returns the number of keys in the store.
 func (s *Store) Count(ctx context.Context) (n int64, err error) {
-	query := db.Count()
+	query := s.stmts.Count()
 	n, err = s.db.QueryScalarInt64(ctx, query.SQL, query.Args)
 	if err != nil {
 		return 0, fmt.Errorf("count: %w", err)
@@ -202,7 +204,7 @@ func (s *Store) Count(ctx context.Context) (n int64, err error) {
 
 // CountPrefix returns the number of keys in the store with a given prefix.
 func (s *Store) CountPrefix(ctx context.Context, prefix string) (count int64, err error) {
-	query := db.CountPrefix(prefix)
+	query := s.stmts.CountPrefix(prefix)
 	count, err = s.db.QueryScalarInt64(ctx, query.SQL, query.Args)
 	if err != nil {
 		return 0, fmt.Errorf("countprefix: %w", err)
@@ -212,7 +214,7 @@ func (s *Store) CountPrefix(ctx context.Context, prefix string) (count int64, er
 
 // CountRange returns the number of keys in the store between the key from (inclusive) and to (exclusive).
 func (s *Store) CountRange(ctx context.Context, from, to string) (count int64, err error) {
-	query := db.CountRange(from, to)
+	query := s.stmts.CountRange(from, to)
 	count, err = s.db.QueryScalarInt64(ctx, query.SQL, query.Args)
 	if err != nil {
 		return 0, fmt.Errorf("countrange: %w", err)
@@ -222,7 +224,7 @@ func (s *Store) CountRange(ctx context.Context, from, to string) (count int64, e
 
 // Patch patches a key in the store. The patch is a JSON merge patch (RFC 7396), so would look something like map[string]any{"key": "value"}.
 func (s *Store) Patch(ctx context.Context, key string, version int64, patch any) (err error) {
-	patchMutation := db.Patch(key, version, patch)
+	patchMutation := s.stmts.Patch(key, version, patch)
 	if patchMutation.ArgsError != nil {
 		return fmt.Errorf("patch: %w", patchMutation.ArgsError)
 	}

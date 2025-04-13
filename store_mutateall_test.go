@@ -13,6 +13,7 @@ type mutateAllTestData struct {
 }
 
 func newMutateAllTest(ctx context.Context, store Store) func(t *testing.T) {
+	stmts := store.db.Statements()
 	return func(t *testing.T) {
 		tests := []struct {
 			name                  string
@@ -23,7 +24,7 @@ func newMutateAllTest(ctx context.Context, store Store) func(t *testing.T) {
 			{
 				name: "Can delete individual keys",
 				operations: []db.Mutation{
-					db.Delete("mutateall-1"), db.Delete("mutateall-2"),
+					stmts.Delete("mutateall-1"), stmts.Delete("mutateall-2"),
 				},
 				expectedRowsAffected:  []int64{1, 1},
 				expectedRemainingKeys: nil,
@@ -31,7 +32,7 @@ func newMutateAllTest(ctx context.Context, store Store) func(t *testing.T) {
 			{
 				name: "Can delete multiple keys",
 				operations: []db.Mutation{
-					db.DeleteKeys("mutateall-1", "mutateall-2"),
+					stmts.DeleteKeys("mutateall-1", "mutateall-2"),
 				},
 				expectedRowsAffected:  []int64{2},
 				expectedRemainingKeys: nil,
@@ -39,7 +40,7 @@ func newMutateAllTest(ctx context.Context, store Store) func(t *testing.T) {
 			{
 				name: "Can delete prefixes",
 				operations: []db.Mutation{
-					db.DeletePrefix("mutate", 0, 1),
+					stmts.DeletePrefix("mutate", 0, 1),
 				},
 				expectedRowsAffected:  []int64{1},
 				expectedRemainingKeys: []string{"mutateall-2"},
@@ -47,7 +48,7 @@ func newMutateAllTest(ctx context.Context, store Store) func(t *testing.T) {
 			{
 				name: "Can delete ranges",
 				operations: []db.Mutation{
-					db.DeleteRange("mutateall-1", "mutateall-2", 0, 100),
+					stmts.DeleteRange("mutateall-1", "mutateall-2", 0, 100),
 				},
 				expectedRowsAffected:  []int64{1},
 				expectedRemainingKeys: []string{"mutateall-2"},
@@ -55,8 +56,8 @@ func newMutateAllTest(ctx context.Context, store Store) func(t *testing.T) {
 			{
 				name: "Can patch alongside",
 				operations: []db.Mutation{
-					db.Delete("mutateall-1"), db.Delete("mutateall-2"),
-					db.Patch("patch-1", -1, map[string]any{"key": "value"}),
+					stmts.Delete("mutateall-1"), stmts.Delete("mutateall-2"),
+					stmts.Patch("patch-1", -1, map[string]any{"key": "value"}),
 				},
 				expectedRowsAffected:  []int64{1, 1, 1},
 				expectedRemainingKeys: []string{"patch-1"},
@@ -64,7 +65,7 @@ func newMutateAllTest(ctx context.Context, store Store) func(t *testing.T) {
 			{
 				name: "Can put and patch in a single transaction",
 				operations: []db.Mutation{
-					db.PutPatches(
+					stmts.PutPatches(
 						db.PutInput("put1", -1, nil),
 						db.PatchInput("patch1", -1, nil),
 					),
@@ -78,7 +79,7 @@ func newMutateAllTest(ctx context.Context, store Store) func(t *testing.T) {
 			{
 				name: "Can put and patch in a single transaction",
 				operations: []db.Mutation{
-					db.PutPatches(
+					stmts.PutPatches(
 						db.PutInput("put1", -1, nil),
 						db.PatchInput("patch1", -1, nil),
 					),
@@ -95,8 +96,8 @@ func newMutateAllTest(ctx context.Context, store Store) func(t *testing.T) {
 				defer store.DeletePrefix(ctx, "*", 0, -1)
 
 				initial := []db.Mutation{
-					db.Put("mutateall-1", -1, mutateAllTestData{Value: "value-1"}),
-					db.Put("mutateall-2", -1, mutateAllTestData{Value: "value-2"}),
+					stmts.Put("mutateall-1", -1, mutateAllTestData{Value: "value-1"}),
+					stmts.Put("mutateall-2", -1, mutateAllTestData{Value: "value-2"}),
 				}
 				rowsAffected, err := store.MutateAll(ctx, initial...)
 				if err != nil {
@@ -132,6 +133,7 @@ func newMutateAllTest(ctx context.Context, store Store) func(t *testing.T) {
 }
 
 func newPutPatchesTest(ctx context.Context, store Store) func(t *testing.T) {
+	stmts := store.db.Statements()
 	return func(t *testing.T) {
 		t.Run("Can put and patch data", func(t *testing.T) {
 			defer store.DeletePrefix(ctx, "*", 0, -1)
@@ -150,7 +152,7 @@ func newPutPatchesTest(ctx context.Context, store Store) func(t *testing.T) {
 					PhoneNumbers: []string{"123-456-7890"},
 				},
 			}
-			rowsAffected, err := store.MutateAll(ctx, db.PutPatches(
+			rowsAffected, err := store.MutateAll(ctx, stmts.PutPatches(
 				db.PutInput(expected[0].Name, -1, expected[0]),
 				db.PutInput(expected[1].Name, -1, expected[1]),
 				db.PatchInput(expected[2].Name, -1, expected[2]),
@@ -185,7 +187,7 @@ func newPutPatchesTest(ctx context.Context, store Store) func(t *testing.T) {
 			}
 			expected.PhoneNumbers = []string{"234-567-8901"}
 
-			rowsAffected, err := store.MutateAll(ctx, db.PutPatches(db.PutInput("put", -1, expected)))
+			rowsAffected, err := store.MutateAll(ctx, stmts.PutPatches(db.PutInput("put", -1, expected)))
 			if err != nil {
 				t.Errorf("unexpected error putting data: %v", err)
 			}
@@ -216,7 +218,7 @@ func newPutPatchesTest(ctx context.Context, store Store) func(t *testing.T) {
 			}
 			expected.PhoneNumbers = []string{"234-567-8901"}
 
-			rowsAffected, err := store.MutateAll(ctx, db.PutPatches(db.PatchInput("patch", -1, map[string]any{"phone_numbers": expected.PhoneNumbers})))
+			rowsAffected, err := store.MutateAll(ctx, stmts.PutPatches(db.PatchInput("patch", -1, map[string]any{"phone_numbers": expected.PhoneNumbers})))
 			if err != nil {
 				t.Errorf("unexpected error patching data: %v", err)
 			}
@@ -243,7 +245,7 @@ func newPutPatchesTest(ctx context.Context, store Store) func(t *testing.T) {
 				t.Errorf("unexpected error putting data: %v", err)
 			}
 
-			rowsAffected, err := store.MutateAll(ctx, db.PutPatches(db.PutInput("put", 0, expected)))
+			rowsAffected, err := store.MutateAll(ctx, stmts.PutPatches(db.PutInput("put", 0, expected)))
 			if err == nil {
 				t.Error("expected error putting data: got nil")
 			}
@@ -261,7 +263,7 @@ func newPutPatchesTest(ctx context.Context, store Store) func(t *testing.T) {
 				t.Errorf("unexpected error putting data: %v", err)
 			}
 			expected.PhoneNumbers = []string{"234-567-8901"}
-			rowsAffected, err := store.MutateAll(ctx, db.PutPatches(db.PutInput("put", 1, expected)))
+			rowsAffected, err := store.MutateAll(ctx, stmts.PutPatches(db.PutInput("put", 1, expected)))
 			if err != nil {
 				t.Errorf("unexpected error overwriting data: %v", err)
 			}
@@ -301,7 +303,7 @@ func newPutPatchesTest(ctx context.Context, store Store) func(t *testing.T) {
 			}
 
 			// Put the data once.
-			rowsAffected, err := store.MutateAll(ctx, db.PutPatches(
+			rowsAffected, err := store.MutateAll(ctx, stmts.PutPatches(
 				db.PutInput(expected[0].Name, -1, expected[0]),
 				db.PutInput(expected[1].Name, -1, expected[1]),
 				db.PatchInput(expected[2].Name, -1, expected[2]),
@@ -320,7 +322,7 @@ func newPutPatchesTest(ctx context.Context, store Store) func(t *testing.T) {
 			expected[0].PhoneNumbers = nil
 			expected[1].PhoneNumbers = nil
 			expected[2].PhoneNumbers = nil
-			rowsAffected, err = store.MutateAll(ctx, db.PutPatches(
+			rowsAffected, err = store.MutateAll(ctx, stmts.PutPatches(
 				db.PutInput(expected[0].Name, -1, expected[0]),
 				db.PatchInput(expected[1].Name, -1, expected[1]),
 				db.PatchInput(expected[2].Name, -1, expected[2]),
@@ -353,7 +355,7 @@ func newPutPatchesTest(ctx context.Context, store Store) func(t *testing.T) {
 				{Value: "value-2"},
 			}
 			initial := []db.Mutation{
-				db.PutPatches(
+				stmts.PutPatches(
 					db.PutInput(keys[0], -1, values[0]),
 					db.PutInput(keys[1], -1, values[1]),
 				),
@@ -365,7 +367,7 @@ func newPutPatchesTest(ctx context.Context, store Store) func(t *testing.T) {
 			expectRowsAffectedEqual(t, []int64{2}, rowsAffected)
 
 			// Updates.
-			updates := db.PutPatches(
+			updates := stmts.PutPatches(
 				// Correct version, update should succeed.
 				db.PutInput("mutateall-1", 1, mutateAllTestData{Value: "value-1-updated"}),
 				// Don't care about version, update should succeed.
